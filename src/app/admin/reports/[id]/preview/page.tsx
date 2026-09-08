@@ -66,6 +66,7 @@ export default async function ReportPreviewPage({
   ]);
 
   const year = report.base_year;
+  const compareYear = report.compare_year;
   const incomeGrid = buildIncomeStatementGrid(incomeItems ?? [], year);
   const entries = (ledgerEntries ?? []) as LedgerEntryRow[];
 
@@ -82,6 +83,18 @@ export default async function ReportPreviewPage({
     topVendors: topVendors(entries, "매입", year),
   };
 
+  // compare_year가 설정되어 있고 해당 연도 데이터가 실제로 업로드되어 있을 때만
+  // 전기대비 비교를 계산한다 (없으면 KpiCard가 비교 표시를 생략한다).
+  const compareIncomeMajor = compareYear
+    ? buildIncomeStatementGrid(incomeItems ?? [], compareYear).major
+    : null;
+  const compareSalesTotal = compareYear
+    ? monthlyLedgerTotals(entries, "매출", compareYear).reduce((s, v) => s + v, 0)
+    : null;
+  const comparePurchaseTotal = compareYear
+    ? monthlyLedgerTotals(entries, "매입", compareYear).reduce((s, v) => s + v, 0)
+    : null;
+
   return (
     <main style={{ padding: "24px 16px" }}>
       <p style={{ maxWidth: 960, margin: "0 auto 16px" }}>
@@ -93,6 +106,9 @@ export default async function ReportPreviewPage({
         incomeGrid={incomeGrid}
         sales={sales}
         purchase={purchase}
+        compareIncomeMajor={compareIncomeMajor}
+        compareSalesTotal={compareSalesTotal}
+        comparePurchaseTotal={comparePurchaseTotal}
         notes={(notes ?? []).map((n) => ({
           section: n.section,
           content: n.content,

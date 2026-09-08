@@ -17,7 +17,9 @@ export function KpiCard({
   compareLabel = "전년",
   accentColor = COLORS.profit,
 }: KpiCardProps) {
-  const diff = compareValue !== undefined && compareValue !== null ? value - compareValue : null;
+  const hasCompare = compareValue !== undefined && compareValue !== null;
+  const diff = hasCompare ? value - compareValue : null;
+  const percent = hasCompare && compareValue !== 0 ? (diff! / Math.abs(compareValue)) * 100 : null;
 
   return (
     <div
@@ -39,6 +41,7 @@ export function KpiCard({
           {compareLabel} 대비 {diff >= 0 ? "+" : ""}
           {diff.toLocaleString("ko-KR")}
           {unit}
+          {percent !== null && ` (${percent >= 0 ? "+" : ""}${percent.toFixed(1)}%)`}
         </p>
       )}
     </div>

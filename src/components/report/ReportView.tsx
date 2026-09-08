@@ -32,6 +32,10 @@ export interface ReportViewData {
   sales: LedgerAnalysis;
   purchase: LedgerAnalysis;
   notes: ReportNote[];
+  /** compare_year 데이터가 없으면 null — 이 경우 전년 대비 표시를 생략한다. */
+  compareIncomeMajor: IncomeStatementAccountRow[] | null;
+  compareSalesTotal: number | null;
+  comparePurchaseTotal: number | null;
 }
 
 const TABS = ["요약", "손익계산서", "매출분석", "매입분석", "담당자 메모"] as const;
@@ -41,7 +45,17 @@ function findMajor(major: IncomeStatementAccountRow[], keyword: string): IncomeS
   return major.find((r) => r.accountName.includes(keyword)) ?? null;
 }
 
-export function ReportView({ client, report, incomeGrid, sales, purchase, notes }: ReportViewData) {
+export function ReportView({
+  client,
+  report,
+  incomeGrid,
+  sales,
+  purchase,
+  notes,
+  compareIncomeMajor,
+  compareSalesTotal,
+  comparePurchaseTotal,
+}: ReportViewData) {
   const [tab, setTab] = useState<Tab>("요약");
 
   const salesTotal = findMajor(incomeGrid.major, "매출액");
@@ -49,6 +63,10 @@ export function ReportView({ client, report, incomeGrid, sales, purchase, notes 
   const sgaTotal = findMajor(incomeGrid.major, "판매비와 관리비");
   const operatingProfit = findMajor(incomeGrid.major, "영업이익");
   const netIncome = findMajor(incomeGrid.major, "당기순이익");
+
+  const compareLabel = report.compareYear ? `${report.compareYear}년` : "전년";
+  const compareTotal = (keyword: string) =>
+    compareIncomeMajor ? (findMajor(compareIncomeMajor, keyword)?.total ?? 0) : undefined;
 
   return (
     <div style={{ fontFamily: "system-ui, -apple-system, sans-serif", maxWidth: 960, margin: "0 auto" }}>
@@ -83,11 +101,41 @@ export function ReportView({ client, report, incomeGrid, sales, purchase, notes 
       {tab === "요약" && (
         <section style={{ display: "flex", flexDirection: "column", gap: 24 }}>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <KpiCard label="매출액" value={salesTotal?.total ?? 0} accentColor={COLORS.sales} />
-            <KpiCard label="매출원가" value={costTotal?.total ?? 0} accentColor={COLORS.muted} />
-            <KpiCard label="판매비와 관리비" value={sgaTotal?.total ?? 0} accentColor={COLORS.purchase} />
-            <KpiCard label="영업이익" value={operatingProfit?.total ?? 0} accentColor={COLORS.profit} />
-            <KpiCard label="당기순이익" value={netIncome?.total ?? 0} accentColor={COLORS.profit} />
+            <KpiCard
+              label="매출액"
+              value={salesTotal?.total ?? 0}
+              compareValue={compareTotal("매출액")}
+              compareLabel={compareLabel}
+              accentColor={COLORS.sales}
+            />
+            <KpiCard
+              label="매출원가"
+              value={costTotal?.total ?? 0}
+              compareValue={compareTotal("매출원가")}
+              compareLabel={compareLabel}
+              accentColor={COLORS.muted}
+            />
+            <KpiCard
+              label="판매비와 관리비"
+              value={sgaTotal?.total ?? 0}
+              compareValue={compareTotal("판매비와 관리비")}
+              compareLabel={compareLabel}
+              accentColor={COLORS.purchase}
+            />
+            <KpiCard
+              label="영업이익"
+              value={operatingProfit?.total ?? 0}
+              compareValue={compareTotal("영업이익")}
+              compareLabel={compareLabel}
+              accentColor={COLORS.profit}
+            />
+            <KpiCard
+              label="당기순이익"
+              value={netIncome?.total ?? 0}
+              compareValue={compareTotal("당기순이익")}
+              compareLabel={compareLabel}
+              accentColor={COLORS.profit}
+            />
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
             <MonthlyBarChart title="월별 매출액" monthly={salesTotal?.monthly ?? new Array(12).fill(0)} color={COLORS.sales} />
@@ -103,11 +151,23 @@ export function ReportView({ client, report, incomeGrid, sales, purchase, notes 
       {tab === "손익계산서" && <IncomeStatementTable major={incomeGrid.major} detail={incomeGrid.detail} />}
 
       {tab === "매출분석" && (
-        <LedgerAnalysisSection title="매출" color={COLORS.sales} data={sales} />
+        <LedgerAnalysisSection
+          title="매출"
+          color={COLORS.sales}
+          data={sales}
+          compareValue={compareSalesTotal}
+          compareLabel={compareLabel}
+        />
       )}
 
       {tab === "매입분석" && (
-        <LedgerAnalysisSection title="매입" color={COLORS.purchase} data={purchase} />
+        <LedgerAnalysisSection
+          title="매입"
+          color={COLORS.purchase}
+          data={purchase}
+          compareValue={comparePurchaseTotal}
+          compareLabel={compareLabel}
+        />
       )}
 
       {tab === "담당자 메모" && (
@@ -144,15 +204,25 @@ function LedgerAnalysisSection({
   title,
   color,
   data,
+  compareValue,
+  compareLabel,
 }: {
   title: string;
   color: string;
   data: LedgerAnalysis;
+  compareValue?: number | null;
+  compareLabel?: string;
 }) {
   const total = data.monthly.reduce((s, v) => s + v, 0);
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <KpiCard label={`${title} 합계`} value={total} accentColor={color} />
+      <KpiCard
+        label={`${title} 합계`}
+        value={total}
+        compareValue={compareValue}
+        compareLabel={compareLabel}
+        accentColor={color}
+      />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <MonthlyBarChart title={`월별 ${title}`} monthly={data.monthly} color={color} />
         <CumulativeLineChart title={`누적 ${title}`} cumulative={data.cumulative} color={color} />
