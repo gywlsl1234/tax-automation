@@ -4,7 +4,9 @@ import {
   aggregateByAccount,
   buildIncomeStatementGrid,
   cumulativeSeries,
+  lastMonthWithAnyData,
   monthlyLedgerTotals,
+  sumThroughMonth,
   topVendors,
 } from "@/lib/report/aggregate";
 import type { LedgerEntryRow } from "@/lib/report/types";
@@ -85,14 +87,24 @@ export default async function ReportPreviewPage({
 
   // compare_year가 설정되어 있고 해당 연도 데이터가 실제로 업로드되어 있을 때만
   // 전기대비 비교를 계산한다 (없으면 KpiCard가 비교 표시를 생략한다).
+  //
+  // 당기는 아직 다 지나지 않아 일부 월만 입력되어 있는 경우가 많다(예: 8월까지만).
+  // 그런데 전기는 이미 지난 해라 12개월 전체가 들어있으면, 단순히 연간 합계끼리
+  // 비교하면 "당기 8개월 vs 전기 12개월"처럼 기간이 달라 왜곡된다. 그래서 당기
+  // 데이터가 실제로 입력된 마지막 달까지만 잘라서(동기간) 전기와 비교한다.
+  const lastMonth = lastMonthWithAnyData(incomeItems ?? [], year);
+
   const compareIncomeMajor = compareYear
-    ? buildIncomeStatementGrid(incomeItems ?? [], compareYear).major
+    ? buildIncomeStatementGrid(incomeItems ?? [], compareYear).major.map((row) => ({
+        ...row,
+        total: sumThroughMonth(row.monthly, lastMonth),
+      }))
     : null;
   const compareSalesTotal = compareYear
-    ? monthlyLedgerTotals(entries, "매출", compareYear).reduce((s, v) => s + v, 0)
+    ? sumThroughMonth(monthlyLedgerTotals(entries, "매출", compareYear), lastMonth)
     : null;
   const comparePurchaseTotal = compareYear
-    ? monthlyLedgerTotals(entries, "매입", compareYear).reduce((s, v) => s + v, 0)
+    ? sumThroughMonth(monthlyLedgerTotals(entries, "매입", compareYear), lastMonth)
     : null;
 
   return (
@@ -109,6 +121,7 @@ export default async function ReportPreviewPage({
         compareIncomeMajor={compareIncomeMajor}
         compareSalesTotal={compareSalesTotal}
         comparePurchaseTotal={comparePurchaseTotal}
+        lastMonth={lastMonth}
         notes={(notes ?? []).map((n) => ({
           section: n.section,
           content: n.content,

@@ -36,6 +36,8 @@ export interface ReportViewData {
   compareIncomeMajor: IncomeStatementAccountRow[] | null;
   compareSalesTotal: number | null;
   comparePurchaseTotal: number | null;
+  /** 당기 데이터가 입력된 마지막 달 (동기간 비교 라벨 표시용, 1~12). 없으면 12. */
+  lastMonth: number;
 }
 
 const TABS = ["요약", "손익계산서", "매출분석", "매입분석", "담당자 메모"] as const;
@@ -55,6 +57,7 @@ export function ReportView({
   compareIncomeMajor,
   compareSalesTotal,
   comparePurchaseTotal,
+  lastMonth,
 }: ReportViewData) {
   const [tab, setTab] = useState<Tab>("요약");
 
@@ -64,7 +67,11 @@ export function ReportView({
   const operatingProfit = findMajor(incomeGrid.major, "영업이익");
   const netIncome = findMajor(incomeGrid.major, "당기순이익");
 
-  const compareLabel = report.compareYear ? `${report.compareYear}년` : "전년";
+  const compareLabel = report.compareYear
+    ? lastMonth < 12
+      ? `${report.compareYear}년 1~${lastMonth}월`
+      : `${report.compareYear}년`
+    : "전년";
   const compareTotal = (keyword: string) =>
     compareIncomeMajor ? (findMajor(compareIncomeMajor, keyword)?.total ?? 0) : undefined;
 

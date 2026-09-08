@@ -19,6 +19,33 @@ function detailAccountSortKey(accountName: string): number {
 }
 
 /**
+ * 매출액이 실제로 마감(입력)된 마지막 월을 반환한다.
+ *
+ * 임차료 같은 고정비는 결산 전에 미리 입력되어 있는 경우가 많아서, "0이 아닌
+ * 항목이 하나라도 있는 마지막 달"로 판단하면 매출이 아직 안 잡힌 달까지도
+ * "마감됨"으로 착각한다(예: 9월 매출은 0인데 9월 임차료만 미리 입력된 경우).
+ * 그래서 매출액(대분류) 행을 기준으로, 그 값이 0이 아닌 마지막 달을 찾는다.
+ * "당기가 8월까지만 입력됐는데 전기는 12월까지 있어 합계가 왜곡되는" 문제를
+ * 막기 위해 "동기간(같은 개월수) 대비"를 계산할 때 이 값을 기준으로 삼는다.
+ * 매출액 데이터가 전혀 없으면 12(전체 기간)를 반환한다.
+ */
+export function lastMonthWithAnyData(items: IncomeStatementRow[], year: number): number {
+  let last = 0;
+  for (const item of items) {
+    if (item.year !== year) continue;
+    if (!item.account_name.includes("매출액")) continue;
+    if (item.amount !== 0 && item.month > last) {
+      last = item.month;
+    }
+  }
+  return last || 12;
+}
+
+export function sumThroughMonth(monthly: number[], throughMonth: number): number {
+  return monthly.slice(0, throughMonth).reduce((s, v) => s + v, 0);
+}
+
+/**
  * income_statement_items는 (연도, 과목명, 월, 금액)만 저장하고 대분류/세부 구분이나
  * 원본 행 순서는 저장하지 않는다. 표시 시점에 로마숫자 접두어로 대분류 여부를
  * 다시 판별하고, 대분류는 로마숫자 순서로, 세부 계정은 "[코드]" 순서로 정렬한다.
