@@ -1,8 +1,9 @@
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadReportViewData } from "@/lib/report/loadReportViewData";
 import { verifyLinkSessionValue, cookieNameForToken } from "@/lib/publicLink/session";
 import { LINK_UNAVAILABLE_MESSAGE } from "@/lib/publicLink/messages";
+import { isMobileUserAgent } from "@/lib/publicLink/device";
 import { ReportView } from "@/components/report/ReportView";
 import { PublicLinkPasswordForm } from "@/components/report/PublicLinkPasswordForm";
 
@@ -40,6 +41,13 @@ export default async function CustomerReportPage({
   // 다시 사용할 수 없어야 하므로, 애초에 검증 시도 자체를 막는다.
   if (link.status !== "active") {
     return <MessageScreen message={LINK_UNAVAILABLE_MESSAGE} />;
+  }
+
+  const userAgent = (await headers()).get("user-agent") ?? "";
+  if (isMobileUserAgent(userAgent)) {
+    return (
+      <MessageScreen message="이 보고서는 모바일 기기에서 열람할 수 없습니다. PC(데스크톱)에서 다시 접속해주세요." />
+    );
   }
 
   const cookieStore = await cookies();

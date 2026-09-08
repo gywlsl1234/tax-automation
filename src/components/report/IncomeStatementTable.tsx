@@ -86,12 +86,12 @@ function EditableCell({ cell, onEditCell }: { cell: IncomeStatementCell; onEditC
         ...td,
         textAlign: "right",
         cursor: editable ? "pointer" : undefined,
-        background: cell.isEdited ? "#fff7e6" : undefined,
+        background: cell.isEdited && onEditCell ? "#fff7e6" : undefined,
         position: "relative",
       }}
     >
       {cell.amount === 0 ? "-" : formatNumber(cell.amount)}
-      {cell.isEdited && (
+      {cell.isEdited && onEditCell && (
         <span style={{ color: "#d97706", fontSize: 10, marginLeft: 3 }}>●</span>
       )}
     </td>

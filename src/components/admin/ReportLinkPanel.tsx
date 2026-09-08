@@ -3,6 +3,37 @@
 import { useState } from "react";
 import { formatKstDateTime } from "@/lib/formatDate";
 
+function CopyButton({ text }: { text: string }) {
+  const [copied, setCopied] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      window.prompt("아래 링크를 복사하세요:", text);
+    }
+  }
+
+  return (
+    <button
+      onClick={handleCopy}
+      style={{
+        padding: "2px 8px",
+        fontSize: 12,
+        background: copied ? "#d1fae5" : "#f3f4f6",
+        color: copied ? "#065f46" : "#111827",
+        border: "1px solid #e5e7eb",
+        borderRadius: 4,
+        cursor: "pointer",
+      }}
+    >
+      {copied ? "복사됨" : "복사"}
+    </button>
+  );
+}
+
 export interface ReportLinkSummary {
   id: string;
   linkToken: string;
@@ -114,8 +145,9 @@ export function ReportLinkPanel({ reportId, initialLinks }: { reportId: string; 
           }}
         >
           <p style={{ margin: "0 0 4px", fontWeight: 600 }}>새 링크가 발급되었습니다 (지금만 표시됩니다)</p>
-          <p style={{ margin: "0 0 4px" }}>
+          <p style={{ margin: "0 0 4px", display: "flex", alignItems: "center", gap: 8 }}>
             URL: <code>{issueResult.url}</code>
+            <CopyButton text={issueResult.url} />
           </p>
           <p style={{ margin: 0 }}>
             기본 비밀번호: <code>{issueResult.defaultPassword}</code>{" "}
@@ -135,6 +167,7 @@ export function ReportLinkPanel({ reportId, initialLinks }: { reportId: string; 
               <th style={th}>실패 횟수</th>
               <th style={th}>발급 시각</th>
               <th style={th}>폐기 시각</th>
+              <th style={th}></th>
             </tr>
           </thead>
           <tbody>
@@ -145,6 +178,13 @@ export function ReportLinkPanel({ reportId, initialLinks }: { reportId: string; 
                 <td style={td}>{l.failCount} / 5</td>
                 <td style={td}>{formatKstDateTime(l.createdAt)}</td>
                 <td style={td}>{l.revokedAt ? formatKstDateTime(l.revokedAt) : "-"}</td>
+                <td style={td}>
+                  {l.status === "active" && (
+                    <CopyButton
+                      text={`${typeof window !== "undefined" ? window.location.origin : ""}/r/${l.linkToken}`}
+                    />
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
