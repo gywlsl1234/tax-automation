@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { auth, signOut } from "@/lib/auth";
 
 export default async function AdminHomePage() {
@@ -9,9 +10,10 @@ export default async function AdminHomePage() {
       <p style={{ color: "#555", marginBottom: 24 }}>
         {session?.user?.email}로 로그인됨 (role: {session?.user?.role})
       </p>
-      <p style={{ marginBottom: 24 }}>
-        고객사 등록/보고서 업로드 등은 Phase 2 이후에 이 화면 아래에 추가됩니다.
-      </p>
+      <nav style={{ display: "flex", gap: 16, marginBottom: 24 }}>
+        <Link href="/admin/reports/new">보고서 생성(엑셀 업로드)</Link>
+        <Link href="/admin/clients">고객사 목록</Link>
+      </nav>
       <form
         action={async () => {
           "use server";
