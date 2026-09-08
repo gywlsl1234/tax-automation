@@ -32,10 +32,12 @@ export interface ReportViewData {
   sales: LedgerAnalysis;
   purchase: LedgerAnalysis;
   notes: ReportNote[];
-  /** compare_year 데이터가 없으면 null — 이 경우 전년 대비 표시를 생략한다. */
+  /**
+   * compare_year 데이터가 없으면 null — 이 경우 전년 대비 표시를 생략한다.
+   * 손익계산서 기반 "요약" 탭에서만 사용한다 — 매입/매출장은 전기 데이터가
+   * 없는 경우가 많아 매출분석/매입분석 탭에는 전기대비를 표시하지 않는다.
+   */
   compareIncomeMajor: IncomeStatementAccountRow[] | null;
-  compareSalesTotal: number | null;
-  comparePurchaseTotal: number | null;
   /** 당기 데이터가 입력된 마지막 달 (동기간 비교 라벨 표시용, 1~12). 없으면 12. */
   lastMonth: number;
 }
@@ -55,8 +57,6 @@ export function ReportView({
   purchase,
   notes,
   compareIncomeMajor,
-  compareSalesTotal,
-  comparePurchaseTotal,
   lastMonth,
 }: ReportViewData) {
   const [tab, setTab] = useState<Tab>("요약");
@@ -157,25 +157,12 @@ export function ReportView({
 
       {tab === "손익계산서" && <IncomeStatementTable major={incomeGrid.major} detail={incomeGrid.detail} />}
 
-      {tab === "매출분석" && (
-        <LedgerAnalysisSection
-          title="매출"
-          color={COLORS.sales}
-          data={sales}
-          compareValue={compareSalesTotal}
-          compareLabel={compareLabel}
-        />
-      )}
+      {/* 매입/매출장은 전기 데이터가 업로드되지 않는 경우가 많아(당기만 관리),
+          여기서는 전기대비 비교를 표시하지 않는다 — 손익계산서 기반의 "요약" 탭만
+          비교를 보여준다. */}
+      {tab === "매출분석" && <LedgerAnalysisSection title="매출" color={COLORS.sales} data={sales} />}
 
-      {tab === "매입분석" && (
-        <LedgerAnalysisSection
-          title="매입"
-          color={COLORS.purchase}
-          data={purchase}
-          compareValue={comparePurchaseTotal}
-          compareLabel={compareLabel}
-        />
-      )}
+      {tab === "매입분석" && <LedgerAnalysisSection title="매입" color={COLORS.purchase} data={purchase} />}
 
       {tab === "담당자 메모" && (
         <section>
@@ -211,25 +198,15 @@ function LedgerAnalysisSection({
   title,
   color,
   data,
-  compareValue,
-  compareLabel,
 }: {
   title: string;
   color: string;
   data: LedgerAnalysis;
-  compareValue?: number | null;
-  compareLabel?: string;
 }) {
   const total = data.monthly.reduce((s, v) => s + v, 0);
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <KpiCard
-        label={`${title} 합계`}
-        value={total}
-        compareValue={compareValue}
-        compareLabel={compareLabel}
-        accentColor={color}
-      />
+      <KpiCard label={`${title} 합계`} value={total} accentColor={color} />
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
         <MonthlyBarChart title={`월별 ${title}`} monthly={data.monthly} color={color} />
         <CumulativeLineChart title={`누적 ${title}`} cumulative={data.cumulative} color={color} />

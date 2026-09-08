@@ -100,12 +100,6 @@ export default async function ReportPreviewPage({
         total: sumThroughMonth(row.monthly, lastMonth),
       }))
     : null;
-  const compareSalesTotal = compareYear
-    ? sumThroughMonth(monthlyLedgerTotals(entries, "매출", compareYear), lastMonth)
-    : null;
-  const comparePurchaseTotal = compareYear
-    ? sumThroughMonth(monthlyLedgerTotals(entries, "매입", compareYear), lastMonth)
-    : null;
 
   return (
     <main style={{ padding: "24px 16px" }}>
@@ -119,8 +113,6 @@ export default async function ReportPreviewPage({
         sales={sales}
         purchase={purchase}
         compareIncomeMajor={compareIncomeMajor}
-        compareSalesTotal={compareSalesTotal}
-        comparePurchaseTotal={comparePurchaseTotal}
         lastMonth={lastMonth}
         notes={(notes ?? []).map((n) => ({
           section: n.section,
