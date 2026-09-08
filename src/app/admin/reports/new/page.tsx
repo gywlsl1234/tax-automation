@@ -187,11 +187,11 @@ export default function NewReportUploadPage() {
           <h3 style={{ fontSize: 15, marginTop: 20 }}>발행 준비된 보고서</h3>
           <p style={{ fontSize: 14, color: "#555" }}>
             보고서가 <code>draft</code> 상태로 생성되었습니다 (report id: {result.report.id}).
-            링크 발행 및 비밀번호/만료 적용은 Phase 5에서 구현됩니다.
+            미리보기 화면에서 내용을 확인한 뒤 공유 링크를 발급하세요.
           </p>
           <p>
             <a href={`/admin/reports/${result.report.id}/preview`} style={{ color: "#2563eb" }}>
-              보고서 화면 미리보기 →
+              보고서 화면 미리보기 및 링크 발급 →
             </a>
           </p>
         </section>

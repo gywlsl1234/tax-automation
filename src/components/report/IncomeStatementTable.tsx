@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatKstDateTime } from "@/lib/formatDate";
 import type { IncomeStatementAccountRow, IncomeStatementCell } from "@/lib/report/types";
 import { COLORS } from "./colors";
 
@@ -77,7 +78,10 @@ function EditableCell({ cell, onEditCell }: { cell: IncomeStatementCell; onEditC
   return (
     <td
       onClick={() => editable && setIsEditing(true)}
-      title={cell.isEdited ? `관리자 수정: ${cell.editedBy ?? ""} ${cell.editedAt ? new Date(cell.editedAt).toLocaleString("ko-KR") : ""}` : undefined}
+      // 수정 여부 표시(배경색/●)는 고객 화면에도 필요하지만(Phase 4 요구사항),
+      // "누가" 수정했는지(담당자 이메일)는 관리자 화면(onEditCell이 있는 경우)
+      // 에서만 보여준다 — 고객에게 내부 담당자 이메일을 노출할 이유가 없다.
+      title={cell.isEdited && onEditCell ? `관리자 수정: ${cell.editedBy ?? ""} ${cell.editedAt ? formatKstDateTime(cell.editedAt) : ""}` : undefined}
       style={{
         ...td,
         textAlign: "right",

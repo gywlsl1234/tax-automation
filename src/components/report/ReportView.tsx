@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { formatKstDateTime } from "@/lib/formatDate";
 import type { CompositionSlice, VendorTotal } from "@/lib/report/aggregate";
 import type { IncomeStatementAccountRow } from "@/lib/report/types";
 import { COLORS } from "./colors";
@@ -237,7 +238,7 @@ function EditableNote({
   return (
     <li style={{ border: `1px solid ${COLORS.gridline}`, borderRadius: 8, padding: "12px 16px" }}>
       <p style={{ fontSize: 12, color: COLORS.muted, margin: "0 0 6px" }}>
-        [{note.section}] {note.updatedBy ?? "관리자"} · {new Date(note.updatedAt).toLocaleString("ko-KR")}
+        [{note.section}] {note.updatedBy ?? "관리자"} · {formatKstDateTime(note.updatedAt)}
       </p>
       {isEditing ? (
         <>

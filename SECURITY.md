@@ -65,28 +65,66 @@
   - 페이지 요청은 `/admin/login`으로 리다이렉트
   - API 요청은 401 JSON 응답
   으로 즉시 차단한다.
-- **고객**: 별도의 Supabase Auth 계정을 만들지 않고, Phase 5에서 구현할
-  `link_token`(+ 선택적 비밀번호) 기반 접근 방식을 쓴다. 관리자 인증
+- **고객**: 별도의 Supabase Auth 계정을 만들지 않고, `report_links` 테이블의
+  `link_token` + 비밀번호 기반 접근 방식을 쓴다(`/r/[token]`). 관리자 인증
   경로와 코드 레벨에서 완전히 분리되어 있어, 고객이 관리자 세션/권한을
-  획득할 방법이 없다.
+  획득할 방법이 없다. 자세한 설계는 6번 항목 참고.
 - 관리자 비밀번호는 평문으로 저장/전달되지 않는다. `scripts/generate-admin-hash.mjs`
   로 bcrypt 해시를 생성해 `ADMIN_PASSWORD_HASH`에만 저장한다.
   - 주의: Next.js는 `.env` 값 안의 `$VAR`를 변수 참조로 확장하므로, bcrypt
     해시의 `$`는 반드시 `\$`로 이스케이프해서 넣어야 한다(스크립트가 이스케이프된
     값도 함께 출력한다).
 
-## 5. 향후 단계에서 유지해야 할 것
+## 5. 유지해야 할 것
 
-- Phase 2 이후 업로드/조회 API를 추가할 때도 모든 `/api/admin/*` 라우트는
-  `auth()`로 세션을 확인한 뒤 `getSupabaseAdminClient()`를 사용한다
-  (미들웨어/proxy가 1차로 막아주지만, 라우트 핸들러 내부에서도 이중으로
-  세션을 검증하는 것을 권장 — Next.js 공식 문서도 proxy 하나에만 의존하지
-  말라고 명시하고 있다).
-- Phase 5에서 고객 링크 라우트(`/r/[token]`)를 구현할 때는
-  - `link_token`으로 report를 조회하되 반드시 `expires_at`, `status` 검증
-  - `password_hash`가 있으면 별도의 단기 세션 쿠키로만 인증 상태 유지
-  - 다른 보고서의 `report_id`가 URL 파라미터 등으로 섞여 들어와도 항상
-    "이 링크 토큰이 소유한 report_id인지"를 서버에서 재검증
+- 모든 `/api/admin/*` 라우트는 `auth()`로 세션을 확인한 뒤
+  `getSupabaseAdminClient()`를 사용한다 (proxy가 1차로 막아주지만, 라우트
+  핸들러 내부에서도 이중으로 세션을 검증하는 것을 권장 — Next.js 공식
+  문서도 proxy 하나에만 의존하지 말라고 명시하고 있다).
 - 키 로테이션: Supabase 프로젝트 설정에서 `service_role`/`anon` 키를
   주기적으로 재발급할 수 있으며, 재발급 시 Vercel 환경변수도 함께 갱신해야
   한다. 담당자 퇴사/외주 종료 시에도 키 로테이션을 진행한다.
+
+## 6. 고객 공유 링크 (`report_links`, `/r/[token]`)
+
+- **비밀번호는 서버에서만 검증한다.** `POST /api/public/report-links/[token]/verify`
+  가 bcrypt.compare로 검증하며, 클라이언트는 평문 비밀번호를 전송할 뿐
+  일치 여부 판단에는 관여하지 않는다.
+- **비밀번호는 절대 평문으로 저장하지 않는다.** `report_links.password_hash`
+  에는 bcrypt 해시만 저장한다. 링크 발급 시 계산되는 기본 비밀번호(사업자
+  등록번호 뒤 5자리)는 발급 응답에 한 번만 담아 관리자에게 보여주고,
+  DB나 로그 어디에도 평문으로 남기지 않는다.
+- **링크 토큰은 추측 불가능한 랜덤 값**(`crypto.randomBytes(24)`, 32자
+  URL-safe)이다.
+- **실패 횟수는 DB 기준으로 서버에서만 관리한다.** 브라우저 상태(로컬
+  스토리지, 쿠키 등)에 의존하지 않으므로 새로고침/브라우저 변경/시크릿
+  모드로 우회할 수 없다. 5회 실패 시 자동 폐기되는 로직은
+  `increment_report_link_fail_count` Postgres 함수 안에서 **단일 UPDATE
+  문**으로 원자적으로 처리한다 — 동시에 여러 요청이 들어와도 경쟁 상태
+  없이 정확히 계산된다.
+- **폐기된 링크는 절대 되살아나지 않는다.** 위 함수는 `where status = 'active'`
+  조건이 걸려 있어, 이미 폐기된 링크에 대해 비밀번호를 다시 맞혀도 그
+  UPDATE는 아무 행에도 영향을 주지 않는다. `/r/[token]` 페이지 자체도
+  링크 상태가 `active`가 아니면 비밀번호 입력창을 아예 보여주지 않는다
+  (검증 시도 자체를 차단).
+- **재발급 시 기존 링크는 즉시 폐기된다.** `report_links(report_id) where
+  status='active'`에 유니크 인덱스를 걸어 DB 레벨에서도 "활성 링크는
+  보고서당 최대 1개"를 강제한다. 관리자가 재발급 버튼을 누르면 기존 활성
+  링크를 revoked로 바꾼 뒤에만 새 링크를 만들 수 있다.
+- **세션 쿠키**: 비밀번호 검증에 성공하면 `src/lib/publicLink/session.ts`가
+  HMAC(SHA-256, `NEXTAUTH_SECRET`)으로 서명한 단기(4시간) 쿠키를 발급한다.
+  - `HttpOnly`, `SameSite=Lax`, 프로덕션에서 `Secure`, `Path=/r/<token>`로
+    스코프를 좁혀서 다른 보고서 링크와 세션이 섞이지 않는다.
+  - 매 요청마다 서명과 만료시각을 서버에서 재검증하고, DB의 현재
+    `status`도 다시 확인한다 — 세션이 유효해도 그 사이 관리자가 링크를
+    재발급/폐기했다면 즉시 차단된다.
+- **RLS는 기존 deny-all 구조를 그대로 유지**한다. `report_links` 테이블도
+  RLS 활성화 + `anon`/`authenticated` REVOKE, `increment_report_link_fail_count`
+  함수도 `anon`/`authenticated`로부터 EXECUTE 권한을 회수했다(테이블과
+  동일하게 역할명을 직접 지정 — Supabase가 새 객체 생성 시 `anon` 등에
+  기본 권한을 부여하므로 `REVOKE ... FROM PUBLIC`만으로는 충분하지 않다).
+  고객 화면도 브라우저가 Supabase에 직접 접근하지 않고 항상
+  `getSupabaseAdminClient()`(service_role)를 통해서만 조회한다.
+- **관리자 대시보드에서 상태 가시성 확보**: `/admin/reports/[id]/preview`의
+  공유 링크 패널에서 각 링크의 정상/폐기 상태, 실패 횟수, 발급/폐기 시각을
+  전부 볼 수 있다.

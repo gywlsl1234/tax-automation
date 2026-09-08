@@ -1,5 +1,3 @@
-import { randomBytes } from "node:crypto";
-import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
@@ -114,12 +112,9 @@ export async function POST(request: Request) {
       clientId = insertedClient.id;
     }
 
-    const linkToken = randomBytes(24).toString("base64url"); // 32자, URL-safe, 추측 불가능한 길이
-    const passwordHash =
-      reportSettings.usePassword && reportSettings.password
-        ? await bcrypt.hash(reportSettings.password, 12)
-        : null;
-
+    // 공유 링크/비밀번호 발급은 이 업로드 단계에서 하지 않는다. 관리자가 미리보기
+    // 화면에서 데이터를 확인한 뒤 "링크 발급" 버튼을 눌러야 report_links가
+    // 생성된다 (POST /api/admin/reports/[id]/links).
     const { data: insertedReport, error: reportError } = await supabase
       .from("reports")
       .insert({
@@ -127,8 +122,6 @@ export async function POST(request: Request) {
         base_year: reportSettings.baseYear,
         compare_year: reportSettings.compareYear,
         currency_unit: reportSettings.currencyUnit,
-        link_token: linkToken,
-        password_hash: passwordHash,
         status: "draft",
       })
       .select("id")
@@ -188,7 +181,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       client: { id: clientId, ...clientInfo },
-      report: { id: reportId, ...reportSettings, linkToken, hasPassword: passwordHash !== null },
+      report: { id: reportId, ...reportSettings },
       preview: {
         incomeStatement: {
           rowCount: incomeItems.length,

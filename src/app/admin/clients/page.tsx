@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
+import { formatKstDateTime } from "@/lib/formatDate";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export default async function AdminClientsPage() {
                             {idx === 0 && " (최신)"}
                           </Link>
                           <span style={{ color: "#999", marginLeft: 6 }}>
-                            {new Date(r.created_at).toLocaleString("ko-KR")}
+                            {formatKstDateTime(r.created_at)}
                           </span>
                         </li>
                       ))}
