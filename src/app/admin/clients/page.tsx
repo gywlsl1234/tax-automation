@@ -28,7 +28,7 @@ export default async function AdminClientsPage() {
               <th style={th}>상호</th>
               <th style={th}>대표자</th>
               <th style={th}>사업자등록번호</th>
-              <th style={th}>보고서 수</th>
+              <th style={th}>보고서</th>
             </tr>
           </thead>
           <tbody>
@@ -37,7 +37,19 @@ export default async function AdminClientsPage() {
                 <td style={td}>{c.company_name}</td>
                 <td style={td}>{c.ceo_name}</td>
                 <td style={td}>{c.biz_reg_no}</td>
-                <td style={td}>{c.reports?.length ?? 0}</td>
+                <td style={td}>
+                  {(c.reports ?? []).length === 0
+                    ? "없음"
+                    : c.reports.map((r) => (
+                        <Link
+                          key={r.id}
+                          href={`/admin/reports/${r.id}/preview`}
+                          style={{ marginRight: 8, color: "#2563eb" }}
+                        >
+                          {r.base_year}년({r.status})
+                        </Link>
+                      ))}
+                </td>
               </tr>
             ))}
           </tbody>
