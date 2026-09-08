@@ -5,14 +5,16 @@
 - `0001_init.sql` — 6개 테이블 생성
 - `0002_rls.sql` — RLS 활성화 및 최소권한 설정 (보안상 반드시 적용, SECURITY.md 참고)
 - `0003_report_links.sql` — 고객 공유 링크(비밀번호 인증 + 5회 실패시 자동 폐기) 테이블/함수
+- `0004_client_periods.sql` — 거래처 사업자구분/담당자, 리포트 월별 스냅샷화, 종합소득세 수동입력, 공유 링크 60일 만료
 
 ## 방법 1: Supabase 대시보드 SQL Editor (권장, 별도 설치 불필요)
 
 1. https://supabase.com/dashboard 에서 프로젝트 접속
 2. 왼쪽 메뉴 `SQL Editor` 클릭
 3. `migrations/0001_init.sql` 내용을 복사해 붙여넣고 `Run` 실행
-4. 이어서 `migrations/0002_rls.sql`, `migrations/0003_report_links.sql` 내용도
-   각각 새 쿼리로 붙여넣고 순서대로 `Run` 실행
+4. 이어서 `migrations/0002_rls.sql`, `migrations/0003_report_links.sql`,
+   `migrations/0004_client_periods.sql` 내용도 각각 새 쿼리로 붙여넣고
+   순서대로 `Run` 실행
 
 ## 방법 2: Supabase CLI
 

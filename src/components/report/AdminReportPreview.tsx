@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { estimateComprehensiveIncomeTax } from "@/lib/tax/incomeTax";
 import { ReportView, type ReportViewData } from "./ReportView";
+import type { TaxOverrideInput } from "./IncomeTaxSection";
 
 /**
  * 관리자 미리보기 전용 래퍼. ReportView는 순수 표시 컴포넌트로 유지하고,
@@ -9,7 +11,10 @@ import { ReportView, type ReportViewData } from "./ReportView";
  * 즉시 반영)을 담당한다. 고객 열람 화면(Phase 5, /r/[token])은 이 래퍼 없이
  * ReportView만 그대로 재사용하면 편집 기능 없이 읽기 전용으로 렌더링된다.
  */
-export function AdminReportPreview(initialData: ReportViewData) {
+export function AdminReportPreview({
+  reportId,
+  ...initialData
+}: ReportViewData & { reportId: string }) {
   const [data, setData] = useState(initialData);
 
   async function handleEditIncomeCell(itemId: string, newAmount: number) {
@@ -66,5 +71,42 @@ export function AdminReportPreview(initialData: ReportViewData) {
     }));
   }
 
-  return <ReportView {...data} onEditIncomeCell={handleEditIncomeCell} onEditNote={handleEditNote} />;
+  async function handleEditTaxOverride(input: TaxOverrideInput) {
+    const res = await fetch(`/api/admin/reports/${reportId}/tax-override`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      window.alert(json.error ?? "수정에 실패했습니다.");
+      return;
+    }
+
+    setData((prev) => ({
+      ...prev,
+      taxOverrideInput: input,
+      taxEstimate: input.enabled
+        ? {
+            annualizedIncome: input.annualIncome ?? 0,
+            incomeTax: input.incomeTax ?? 0,
+            localIncomeTax: input.localTax ?? 0,
+            totalTax: (input.incomeTax ?? 0) + (input.localTax ?? 0),
+            isManualOverride: true,
+          }
+        : {
+            ...estimateComprehensiveIncomeTax({ cumulativeIncome: prev.cumulativeIncome, monthsElapsed: prev.lastMonth }),
+            isManualOverride: false,
+          },
+    }));
+  }
+
+  return (
+    <ReportView
+      {...data}
+      onEditIncomeCell={handleEditIncomeCell}
+      onEditNote={handleEditNote}
+      onEditTaxOverride={handleEditTaxOverride}
+    />
+  );
 }

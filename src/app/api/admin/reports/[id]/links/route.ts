@@ -73,7 +73,7 @@ export async function POST(
       status: "active",
       fail_count: 0,
     })
-    .select("id, link_token, created_at")
+    .select("id, link_token, created_at, expires_at")
     .single();
   if (insertError || !newLink) {
     return NextResponse.json({ error: `링크 발급 실패: ${insertError?.message}` }, { status: 500 });
@@ -91,5 +91,6 @@ export async function POST(
     url: `${origin}/r/${newLink.link_token}`,
     defaultPassword,
     createdAt: newLink.created_at,
+    expiresAt: newLink.expires_at,
   });
 }

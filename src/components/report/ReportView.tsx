@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { formatKstDateTime } from "@/lib/formatDate";
+import { buildReportTitle } from "@/lib/report/reportTitle";
 import type { CompositionSlice, VendorTotal } from "@/lib/report/aggregate";
 import type { IncomeStatementAccountRow } from "@/lib/report/types";
 import { COLORS } from "./colors";
@@ -11,6 +12,7 @@ import { CumulativeLineChart } from "./CumulativeLineChart";
 import { CompositionDonut } from "./CompositionDonut";
 import { VendorTable } from "./VendorTable";
 import { IncomeStatementTable, type OnEditIncomeCell } from "./IncomeStatementTable";
+import { IncomeTaxSection, type OnEditTaxOverride, type TaxEstimate, type TaxOverrideInput } from "./IncomeTaxSection";
 
 export interface LedgerAnalysis {
   monthly: number[];
@@ -28,8 +30,14 @@ export interface ReportNote {
 }
 
 export interface ReportViewData {
-  client: { companyName: string; ceoName: string; bizRegNo: string };
-  report: { baseYear: number; compareYear: number | null; currencyUnit: string };
+  client: {
+    companyName: string;
+    ceoName: string;
+    bizRegNo: string;
+    /** 개인사업자(individual)일 때만 예상 종합소득세 섹션을 노출한다. */
+    entityType: "individual" | "corporate";
+  };
+  report: { baseYear: number; reportMonth: number | null; compareYear: number | null; currencyUnit: string };
   incomeGrid: { major: IncomeStatementAccountRow[]; detail: IncomeStatementAccountRow[] };
   sales: LedgerAnalysis;
   purchase: LedgerAnalysis;
@@ -42,9 +50,14 @@ export interface ReportViewData {
   compareIncomeMajor: IncomeStatementAccountRow[] | null;
   /** 당기 데이터가 입력된 마지막 달 (동기간 비교 라벨 표시용, 1~12). 없으면 12. */
   lastMonth: number;
-  /** 제공되면 손익계산서 셀/메모가 편집 가능해진다 (관리자 화면 전용, 고객 화면에는 넘기지 않는다). */
+  /** 예상 종합소득세 계산에 쓰인 누적 당기순이익. */
+  cumulativeIncome: number;
+  taxEstimate: TaxEstimate;
+  taxOverrideInput: TaxOverrideInput;
+  /** 제공되면 손익계산서 셀/메모/종합소득세 수동입력이 편집 가능해진다 (관리자 화면 전용, 고객 화면에는 넘기지 않는다). */
   onEditIncomeCell?: OnEditIncomeCell;
   onEditNote?: (noteId: string, newContent: string) => Promise<void>;
+  onEditTaxOverride?: OnEditTaxOverride;
 }
 
 const TABS = ["요약", "손익계산서", "매출분석", "매입분석", "담당자 메모"] as const;
@@ -63,8 +76,12 @@ export function ReportView({
   notes,
   compareIncomeMajor,
   lastMonth,
+  cumulativeIncome,
+  taxEstimate,
+  taxOverrideInput,
   onEditIncomeCell,
   onEditNote,
+  onEditTaxOverride,
 }: ReportViewData) {
   const [tab, setTab] = useState<Tab>("요약");
 
@@ -85,9 +102,12 @@ export function ReportView({
   return (
     <div style={{ fontFamily: "system-ui, -apple-system, sans-serif", maxWidth: 960, margin: "0 auto" }}>
       <header style={{ marginBottom: 24 }}>
-        <h1 style={{ fontSize: 20, marginBottom: 4 }}>{client.companyName} 재무보고서</h1>
+        <h1 style={{ fontSize: 20, marginBottom: 4 }}>
+          {client.companyName} {buildReportTitle(report.reportMonth)}
+        </h1>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, margin: 0 }}>
           대표자 {client.ceoName} · 사업자등록번호 {client.bizRegNo} · 기준연도 {report.baseYear}
+          {report.reportMonth ? ` · 기준월 ${report.reportMonth}월` : ""}
         </p>
       </header>
 
@@ -159,6 +179,14 @@ export function ReportView({
               color={COLORS.profit}
             />
           </div>
+          {client.entityType === "individual" && (
+            <IncomeTaxSection
+              cumulativeIncome={cumulativeIncome}
+              taxEstimate={taxEstimate}
+              taxOverrideInput={taxOverrideInput}
+              onEditTaxOverride={onEditTaxOverride}
+            />
+          )}
         </section>
       )}
 

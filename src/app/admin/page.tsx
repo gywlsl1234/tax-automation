@@ -13,6 +13,7 @@ export default async function AdminHomePage() {
       <nav style={{ display: "flex", gap: 16, marginBottom: 24 }}>
         <Link href="/admin/reports/new">보고서 생성(엑셀 업로드)</Link>
         <Link href="/admin/clients">고객사 목록</Link>
+        <Link href="/admin/clients/bulk-upload">거래처 일괄 업로드</Link>
       </nav>
       <form
         action={async () => {

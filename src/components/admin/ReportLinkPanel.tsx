@@ -41,6 +41,7 @@ export interface ReportLinkSummary {
   failCount: number;
   createdAt: string;
   revokedAt: string | null;
+  expiresAt: string;
 }
 
 interface IssueResult {
@@ -48,8 +49,25 @@ interface IssueResult {
   defaultPassword: string;
 }
 
-function statusBadge(status: "active" | "revoked") {
-  const isActive = status === "active";
+type DisplayStatus = "active" | "expired" | "revoked";
+
+/** DB의 status(active/revoked)와 expires_at을 조합한 화면 표시용 상태 — "만료"는
+ * 별도 컬럼 없이 현재 시각과 expires_at을 비교해 그때그때 계산한다. */
+function displayStatus(link: Pick<ReportLinkSummary, "status" | "expiresAt">): DisplayStatus {
+  if (link.status === "revoked") return "revoked";
+  if (new Date(link.expiresAt).getTime() < Date.now()) return "expired";
+  return "active";
+}
+
+const STATUS_LABEL: Record<DisplayStatus, string> = { active: "사용중", expired: "만료", revoked: "폐기" };
+const STATUS_COLOR: Record<DisplayStatus, { color: string; background: string }> = {
+  active: { color: "#065f46", background: "#d1fae5" },
+  expired: { color: "#78350f", background: "#fef3c7" },
+  revoked: { color: "#7f1d1d", background: "#fee2e2" },
+};
+
+function statusBadge(link: Pick<ReportLinkSummary, "status" | "expiresAt">) {
+  const status = displayStatus(link);
   return (
     <span
       style={{
@@ -58,11 +76,10 @@ function statusBadge(status: "active" | "revoked") {
         borderRadius: 12,
         fontSize: 12,
         fontWeight: 600,
-        color: isActive ? "#065f46" : "#7f1d1d",
-        background: isActive ? "#d1fae5" : "#fee2e2",
+        ...STATUS_COLOR[status],
       }}
     >
-      {isActive ? "정상" : "폐기"}
+      {STATUS_LABEL[status]}
     </span>
   );
 }
@@ -99,6 +116,7 @@ export function ReportLinkPanel({ reportId, initialLinks }: { reportId: string; 
           status: "active" as const,
           failCount: 0,
           createdAt: json.createdAt,
+          expiresAt: json.expiresAt,
           revokedAt: null,
         },
         ...prev.map((l) => (l.status === "active" ? { ...l, status: "revoked" as const } : l)),
@@ -166,6 +184,7 @@ export function ReportLinkPanel({ reportId, initialLinks }: { reportId: string; 
               <th style={th}>토큰</th>
               <th style={th}>실패 횟수</th>
               <th style={th}>발급 시각</th>
+              <th style={th}>만료일</th>
               <th style={th}>폐기 시각</th>
               <th style={th}></th>
             </tr>
@@ -173,13 +192,14 @@ export function ReportLinkPanel({ reportId, initialLinks }: { reportId: string; 
           <tbody>
             {links.map((l) => (
               <tr key={l.id}>
-                <td style={td}>{statusBadge(l.status)}</td>
+                <td style={td}>{statusBadge(l)}</td>
                 <td style={{ ...td, fontFamily: "monospace" }}>{l.linkToken.slice(0, 12)}...</td>
                 <td style={td}>{l.failCount} / 5</td>
                 <td style={td}>{formatKstDateTime(l.createdAt)}</td>
+                <td style={td}>{formatKstDateTime(l.expiresAt)}</td>
                 <td style={td}>{l.revokedAt ? formatKstDateTime(l.revokedAt) : "-"}</td>
                 <td style={td}>
-                  {l.status === "active" && (
+                  {displayStatus(l) === "active" && (
                     <CopyButton
                       text={`${typeof window !== "undefined" ? window.location.origin : ""}/r/${l.linkToken}`}
                     />

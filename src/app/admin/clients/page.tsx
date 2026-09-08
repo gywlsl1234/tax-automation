@@ -22,8 +22,9 @@ export default async function AdminClientsPage() {
   return (
     <main style={{ maxWidth: 800, margin: "40px auto", fontFamily: "sans-serif", padding: "0 16px" }}>
       <h1 style={{ fontSize: 20, marginBottom: 8 }}>고객사 목록</h1>
-      <p style={{ marginBottom: 24 }}>
+      <p style={{ marginBottom: 24, display: "flex", gap: 16 }}>
         <Link href="/admin">← 대시보드로</Link>
+        <Link href="/admin/clients/bulk-upload">거래처 일괄 업로드</Link>
       </p>
 
       {error && <p style={{ color: "crimson" }}>조회 실패: {error.message}</p>}
@@ -43,7 +44,11 @@ export default async function AdminClientsPage() {
           <tbody>
             {clients.map((c) => (
               <tr key={c.id}>
-                <td style={td}>{c.company_name}</td>
+                <td style={td}>
+                  <Link href={`/admin/clients/${c.id}`} style={{ color: "#2563eb" }}>
+                    {c.company_name}
+                  </Link>
+                </td>
                 <td style={td}>{c.ceo_name}</td>
                 <td style={td}>{c.biz_reg_no}</td>
                 <td style={td}>

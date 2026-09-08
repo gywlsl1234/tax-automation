@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import type { ReportViewData } from "@/components/report/ReportView";
 import type { LedgerEntryRow } from "./types";
@@ -6,28 +7,35 @@ import {
   aggregateByAccount,
   buildIncomeStatementGrid,
   cumulativeSeries,
+  findMajorCategoryTotal,
   lastMonthWithAnyData,
   monthlyLedgerTotals,
   sumThroughMonth,
   topVendors,
 } from "./aggregate";
+import { estimateComprehensiveIncomeTax } from "@/lib/tax/incomeTax";
 
-export type LoadedReportViewData = Omit<ReportViewData, "onEditIncomeCell" | "onEditNote">;
+export type LoadedReportViewData = Omit<ReportViewData, "onEditIncomeCell" | "onEditNote" | "onEditTaxOverride">;
 
 /**
  * 관리자 미리보기(/admin/reports/[id]/preview)와 고객 열람 화면(/r/[token])이
  * 공통으로 쓰는 보고서 데이터 조회/집계 로직. 두 화면이 같은 계산식을 쓰도록
  * 보장해 "관리자가 수정하면 고객 화면에도 즉시 반영된다"는 요구를 자연스럽게
  * 만족시킨다(같은 함수로 매번 새로 읽으므로 캐시 불일치가 없다).
+ *
+ * `cache()`로 감싸 같은 요청(예: generateMetadata + 페이지 본문) 안에서 중복
+ * 호출되어도 DB 조회는 한 번만 일어난다 — 요청 간에는 공유되지 않는다.
  */
-export async function loadReportViewData(
+export const loadReportViewData = cache(async function loadReportViewData(
   reportId: string
 ): Promise<{ ok: true; data: LoadedReportViewData } | { ok: false; error: string }> {
   const supabase = getSupabaseAdminClient();
 
   const { data: report, error: reportError } = await supabase
     .from("reports")
-    .select("id, base_year, compare_year, currency_unit, client_id")
+    .select(
+      "id, base_year, report_month, compare_year, currency_unit, client_id, manual_tax_override, manual_annual_income, manual_income_tax, manual_local_tax"
+    )
     .eq("id", reportId)
     .single();
   if (reportError || !report) {
@@ -36,7 +44,7 @@ export async function loadReportViewData(
 
   const { data: client, error: clientError } = await supabase
     .from("clients")
-    .select("company_name, ceo_name, biz_reg_no")
+    .select("company_name, ceo_name, biz_reg_no, entity_type")
     .eq("id", report.client_id)
     .single();
   if (clientError || !client) {
@@ -86,11 +94,42 @@ export async function loadReportViewData(
       }))
     : null;
 
+  const netIncomeRow = findMajorCategoryTotal(incomeGrid.major, "당기순이익");
+  const cumulativeIncome = netIncomeRow ? sumThroughMonth(netIncomeRow.monthly, lastMonth) : 0;
+  const taxOverrideInput = {
+    enabled: report.manual_tax_override,
+    annualIncome: report.manual_annual_income,
+    incomeTax: report.manual_income_tax,
+    localTax: report.manual_local_tax,
+  };
+  const taxEstimate = report.manual_tax_override
+    ? {
+        annualizedIncome: report.manual_annual_income ?? 0,
+        incomeTax: report.manual_income_tax ?? 0,
+        localIncomeTax: report.manual_local_tax ?? 0,
+        totalTax: (report.manual_income_tax ?? 0) + (report.manual_local_tax ?? 0),
+        isManualOverride: true,
+      }
+    : { ...estimateComprehensiveIncomeTax({ cumulativeIncome, monthsElapsed: lastMonth }), isManualOverride: false };
+
   return {
     ok: true,
     data: {
-      client: { companyName: client.company_name, ceoName: client.ceo_name, bizRegNo: client.biz_reg_no },
-      report: { baseYear: report.base_year, compareYear: report.compare_year, currencyUnit: report.currency_unit },
+      client: {
+        companyName: client.company_name,
+        ceoName: client.ceo_name,
+        bizRegNo: client.biz_reg_no,
+        entityType: client.entity_type as "individual" | "corporate",
+      },
+      cumulativeIncome,
+      taxEstimate,
+      taxOverrideInput,
+      report: {
+        baseYear: report.base_year,
+        reportMonth: report.report_month,
+        compareYear: report.compare_year,
+        currencyUnit: report.currency_unit,
+      },
       incomeGrid,
       sales,
       purchase,
@@ -105,4 +144,4 @@ export async function loadReportViewData(
       })),
     },
   };
-}
+});

@@ -55,3 +55,18 @@ export interface ParseIssue {
   row: number;
   message: string;
 }
+
+export interface ParsedClientBulkRow {
+  row: number; // 엑셀 상 실제 행 번호 (오류 안내에 사용)
+  companyName: string;
+  ceoName: string;
+  bizRegNo: string;
+  entityType: "individual" | "corporate";
+  bizType: string | null;
+  bizItem: string | null;
+  contactName: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  fiscalMonth: number | null;
+}

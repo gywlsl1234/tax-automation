@@ -2,7 +2,8 @@ import bcrypt from "bcryptjs";
 import { NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createLinkSessionValue, cookieNameForToken } from "@/lib/publicLink/session";
-import { LINK_UNAVAILABLE_MESSAGE, MAX_PASSWORD_FAILS } from "@/lib/publicLink/messages";
+import { LINK_UNAVAILABLE_MESSAGE, LINK_EXPIRED_MESSAGE, MAX_PASSWORD_FAILS } from "@/lib/publicLink/messages";
+import { isLinkExpired } from "@/lib/publicLink/expiry";
 
 /**
  * 고객 링크 비밀번호 검증. 절대 클라이언트에서 비교하지 않고 서버(이 라우트)
@@ -18,7 +19,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
 
   const { data: link, error: findError } = await supabase
     .from("report_links")
-    .select("id, password_hash, status")
+    .select("id, password_hash, status, expires_at")
     .eq("link_token", token)
     .maybeSingle();
 
@@ -28,6 +29,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ tok
   if (!link || link.status !== "active") {
     // 폐기됐거나 존재하지 않는 링크는 비밀번호가 맞아도 절대 통과시키지 않는다.
     return NextResponse.json({ error: LINK_UNAVAILABLE_MESSAGE, revoked: true }, { status: 403 });
+  }
+  if (isLinkExpired(link.expires_at)) {
+    // 만료된 링크도 비밀번호 시도(및 실패 횟수 증가) 자체를 막는다.
+    return NextResponse.json({ error: LINK_EXPIRED_MESSAGE, expired: true }, { status: 403 });
   }
 
   const isMatch = await bcrypt.compare(password, link.password_hash);

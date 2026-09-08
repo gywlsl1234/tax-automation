@@ -1,10 +1,18 @@
 import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { loadReportViewData } from "@/lib/report/loadReportViewData";
+import { buildReportTitle } from "@/lib/report/reportTitle";
 import { AdminReportPreview } from "@/components/report/AdminReportPreview";
 import { ReportLinkPanel } from "@/components/admin/ReportLinkPanel";
 
 export const dynamic = "force-dynamic";
+
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id: reportId } = await params;
+  const result = await loadReportViewData(reportId);
+  if (!result.ok) return { title: "보고서 미리보기" };
+  return { title: `${result.data.client.companyName} ${buildReportTitle(result.data.report.reportMonth)} (미리보기)` };
+}
 
 export default async function ReportPreviewPage({
   params,
@@ -25,7 +33,7 @@ export default async function ReportPreviewPage({
   const supabase = getSupabaseAdminClient();
   const { data: reportLinks } = await supabase
     .from("report_links")
-    .select("id, link_token, status, fail_count, created_at, revoked_at")
+    .select("id, link_token, status, fail_count, created_at, revoked_at, expires_at")
     .eq("report_id", reportId)
     .order("created_at", { ascending: false });
 
@@ -44,10 +52,11 @@ export default async function ReportPreviewPage({
             failCount: l.fail_count,
             createdAt: l.created_at,
             revokedAt: l.revoked_at,
+            expiresAt: l.expires_at,
           }))}
         />
       </div>
-      <AdminReportPreview {...result.data} />
+      <AdminReportPreview {...result.data} reportId={reportId} />
     </main>
   );
 }
