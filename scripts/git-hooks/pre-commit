@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# 커밋되면 안 되는 파일/패턴이 스테이징되어 있으면 커밋을 차단한다.
+# (완전한 secret 스캐너가 아니라 실수 방지용 1차 방어선입니다.)
+set -euo pipefail
+
+STAGED_FILES=$(git diff --cached --name-only --diff-filter=ACM)
+
+if [ -z "$STAGED_FILES" ]; then
+  exit 0
+fi
+
+fail=0
+
+# 1) .env* 파일 자체가 커밋되는 것을 차단 (.env*.example 은 허용)
+while IFS= read -r file; do
+  case "$file" in
+    *.example) continue ;;
+    .env|.env.*|*/.env|*/.env.*)
+      echo "[pre-commit] 차단: 환경변수 파일이 커밋 대상에 포함되어 있습니다: $file"
+      fail=1
+      ;;
+  esac
+done <<< "$STAGED_FILES"
+
+# 2) 스테이징된 diff 내용에서 흔한 secret 패턴 탐지
+DIFF_CONTENT=$(git diff --cached -- . \
+  ':(exclude)*.example' \
+  ':(exclude)package-lock.json' \
+  ':(exclude)scripts/git-hooks/pre-commit')
+
+PATTERNS=(
+  '-----BEGIN [A-Z ]*PRIVATE KEY-----'      # PEM 개인키
+  'SUPABASE_SERVICE_ROLE_KEY=.+'            # service_role 키 값이 실제로 들어간 경우
+  'sb_secret_[A-Za-z0-9_-]+'                # Supabase 신규 secret key 포맷
+  'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}' # JWT형 키(anon/service_role 등)
+  'postgres(ql)?://[^@[:space:]]+:[^@[:space:]]+@'  # DATABASE_URL에 비밀번호가 박힌 접속 문자열
+  'AKIA[0-9A-Z]{16}'                        # AWS Access Key
+)
+
+for pattern in "${PATTERNS[@]}"; do
+  if echo "$DIFF_CONTENT" | grep -E -q -e "$pattern"; then
+    echo "[pre-commit] 차단: 커밋 내용에 시크릿으로 의심되는 패턴이 발견되었습니다 ($pattern)"
+    fail=1
+  fi
+done
+
+if [ "$fail" -ne 0 ]; then
+  echo ""
+  echo "커밋이 중단되었습니다. 시크릿/자격증명은 .env.local(gitignore 처리됨)에만 두고,"
+  echo "실수로 포함된 파일이면 'git restore --staged <file>'로 스테이징에서 제외하세요."
+  exit 1
+fi
+
+exit 0
