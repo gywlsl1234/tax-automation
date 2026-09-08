@@ -9,7 +9,7 @@ import { MonthlyBarChart } from "./MonthlyBarChart";
 import { CumulativeLineChart } from "./CumulativeLineChart";
 import { CompositionDonut } from "./CompositionDonut";
 import { VendorTable } from "./VendorTable";
-import { IncomeStatementTable } from "./IncomeStatementTable";
+import { IncomeStatementTable, type OnEditIncomeCell } from "./IncomeStatementTable";
 
 export interface LedgerAnalysis {
   monthly: number[];
@@ -19,6 +19,7 @@ export interface LedgerAnalysis {
 }
 
 export interface ReportNote {
+  id: string;
   section: string;
   content: string | null;
   updatedBy: string | null;
@@ -40,6 +41,9 @@ export interface ReportViewData {
   compareIncomeMajor: IncomeStatementAccountRow[] | null;
   /** 당기 데이터가 입력된 마지막 달 (동기간 비교 라벨 표시용, 1~12). 없으면 12. */
   lastMonth: number;
+  /** 제공되면 손익계산서 셀/메모가 편집 가능해진다 (관리자 화면 전용, 고객 화면에는 넘기지 않는다). */
+  onEditIncomeCell?: OnEditIncomeCell;
+  onEditNote?: (noteId: string, newContent: string) => Promise<void>;
 }
 
 const TABS = ["요약", "손익계산서", "매출분석", "매입분석", "담당자 메모"] as const;
@@ -58,6 +62,8 @@ export function ReportView({
   notes,
   compareIncomeMajor,
   lastMonth,
+  onEditIncomeCell,
+  onEditNote,
 }: ReportViewData) {
   const [tab, setTab] = useState<Tab>("요약");
 
@@ -155,7 +161,9 @@ export function ReportView({
         </section>
       )}
 
-      {tab === "손익계산서" && <IncomeStatementTable major={incomeGrid.major} detail={incomeGrid.detail} />}
+      {tab === "손익계산서" && (
+        <IncomeStatementTable major={incomeGrid.major} detail={incomeGrid.detail} onEditCell={onEditIncomeCell} />
+      )}
 
       {/* 매입/매출장은 전기 데이터가 업로드되지 않는 경우가 많아(당기만 관리),
           여기서는 전기대비 비교를 표시하지 않는다 — 손익계산서 기반의 "요약" 탭만
@@ -170,21 +178,8 @@ export function ReportView({
             <p style={{ color: COLORS.muted, fontSize: 14 }}>등록된 메모가 없습니다.</p>
           ) : (
             <ul style={{ listStyle: "none", padding: 0, display: "flex", flexDirection: "column", gap: 12 }}>
-              {notes.map((note, idx) => (
-                <li
-                  key={idx}
-                  style={{
-                    border: `1px solid ${COLORS.gridline}`,
-                    borderRadius: 8,
-                    padding: "12px 16px",
-                  }}
-                >
-                  <p style={{ fontSize: 12, color: COLORS.muted, margin: "0 0 6px" }}>
-                    [{note.section}] {note.updatedBy ?? "관리자"} ·{" "}
-                    {new Date(note.updatedAt).toLocaleString("ko-KR")}
-                  </p>
-                  <p style={{ fontSize: 14, whiteSpace: "pre-wrap", margin: 0 }}>{note.content}</p>
-                </li>
+              {notes.map((note) => (
+                <EditableNote key={note.id} note={note} onEditNote={onEditNote} />
               ))}
             </ul>
           )}
@@ -214,5 +209,90 @@ function LedgerAnalysisSection({
       <CompositionDonut title={`${title} 구성비 (계정과목별)`} data={data.composition} />
       <VendorTable title={`거래처 Top${data.topVendors.length}`} vendors={data.topVendors} />
     </section>
+  );
+}
+
+function EditableNote({
+  note,
+  onEditNote,
+}: {
+  note: ReportNote;
+  onEditNote?: (noteId: string, newContent: string) => Promise<void>;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [draft, setDraft] = useState(note.content ?? "");
+  const [isSaving, setIsSaving] = useState(false);
+
+  async function save() {
+    if (!onEditNote) return;
+    setIsSaving(true);
+    try {
+      await onEditNote(note.id, draft);
+      setIsEditing(false);
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <li style={{ border: `1px solid ${COLORS.gridline}`, borderRadius: 8, padding: "12px 16px" }}>
+      <p style={{ fontSize: 12, color: COLORS.muted, margin: "0 0 6px" }}>
+        [{note.section}] {note.updatedBy ?? "관리자"} · {new Date(note.updatedAt).toLocaleString("ko-KR")}
+      </p>
+      {isEditing ? (
+        <>
+          <textarea
+            value={draft}
+            disabled={isSaving}
+            onChange={(e) => setDraft(e.target.value)}
+            rows={3}
+            style={{
+              width: "100%",
+              fontSize: 14,
+              padding: 8,
+              border: `1px solid ${COLORS.gridline}`,
+              borderRadius: 6,
+              fontFamily: "inherit",
+              resize: "vertical",
+            }}
+          />
+          <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+            <button onClick={save} disabled={isSaving} style={{ fontSize: 12, padding: "4px 10px" }}>
+              저장
+            </button>
+            <button
+              onClick={() => {
+                setDraft(note.content ?? "");
+                setIsEditing(false);
+              }}
+              disabled={isSaving}
+              style={{ fontSize: 12, padding: "4px 10px" }}
+            >
+              취소
+            </button>
+          </div>
+        </>
+      ) : (
+        <>
+          <p style={{ fontSize: 14, whiteSpace: "pre-wrap", margin: 0 }}>{note.content}</p>
+          {onEditNote && (
+            <button
+              onClick={() => setIsEditing(true)}
+              style={{
+                fontSize: 12,
+                padding: "2px 8px",
+                marginTop: 6,
+                color: COLORS.profit,
+                background: "none",
+                border: "none",
+                cursor: "pointer",
+              }}
+            >
+              수정
+            </button>
+          )}
+        </>
+      )}
+    </li>
   );
 }

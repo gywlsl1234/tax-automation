@@ -1,5 +1,6 @@
 import type {
   IncomeStatementAccountRow,
+  IncomeStatementCell,
   IncomeStatementRow,
   LedgerEntryRow,
   LedgerEntryType,
@@ -50,29 +51,44 @@ export function sumThroughMonth(monthly: number[], throughMonth: number): number
  * 원본 행 순서는 저장하지 않는다. 표시 시점에 로마숫자 접두어로 대분류 여부를
  * 다시 판별하고, 대분류는 로마숫자 순서로, 세부 계정은 "[코드]" 순서로 정렬한다.
  */
+function emptyCell(): IncomeStatementCell {
+  return { id: null, amount: 0, isEdited: false, editedBy: null, editedAt: null };
+}
+
 export function buildIncomeStatementGrid(
   items: IncomeStatementRow[],
   year: number
 ): { major: IncomeStatementAccountRow[]; detail: IncomeStatementAccountRow[] } {
-  const byAccount = new Map<string, number[]>();
+  const byAccount = new Map<string, IncomeStatementCell[]>();
   for (const item of items) {
     if (item.year !== year) continue;
     if (!byAccount.has(item.account_name)) {
-      byAccount.set(item.account_name, new Array(12).fill(0));
+      byAccount.set(item.account_name, Array.from({ length: 12 }, emptyCell));
     }
-    const monthly = byAccount.get(item.account_name)!;
+    const cells = byAccount.get(item.account_name)!;
     if (item.month >= 1 && item.month <= 12) {
-      monthly[item.month - 1] += item.amount;
+      // 정상적으로 업로드된 데이터는 (연도, 과목, 월)당 행이 하나뿐이므로 덮어쓴다.
+      cells[item.month - 1] = {
+        id: item.id,
+        amount: item.amount,
+        isEdited: item.is_edited,
+        editedBy: item.edited_by,
+        editedAt: item.edited_at,
+      };
     }
   }
 
   const rows: IncomeStatementAccountRow[] = Array.from(byAccount.entries()).map(
-    ([accountName, monthly]) => ({
-      accountName,
-      isMajor: MAJOR_CATEGORY_PATTERN.test(accountName),
-      monthly,
-      total: monthly.reduce((s, v) => s + v, 0),
-    })
+    ([accountName, cells]) => {
+      const monthly = cells.map((c) => c.amount);
+      return {
+        accountName,
+        isMajor: MAJOR_CATEGORY_PATTERN.test(accountName),
+        cells,
+        monthly,
+        total: monthly.reduce((s, v) => s + v, 0),
+      };
+    }
   );
 
   const major = rows

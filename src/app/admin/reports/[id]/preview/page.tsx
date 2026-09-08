@@ -10,7 +10,7 @@ import {
   topVendors,
 } from "@/lib/report/aggregate";
 import type { LedgerEntryRow } from "@/lib/report/types";
-import { ReportView } from "@/components/report/ReportView";
+import { AdminReportPreview } from "@/components/report/AdminReportPreview";
 
 export const dynamic = "force-dynamic";
 
@@ -53,7 +53,7 @@ export default async function ReportPreviewPage({
   const [{ data: incomeItems }, { data: ledgerEntries }, { data: notes }] = await Promise.all([
     supabase
       .from("income_statement_items")
-      .select("account_name, year, month, amount")
+      .select("id, account_name, year, month, amount, is_edited, edited_by, edited_at")
       .eq("report_id", reportId),
     supabase
       .from("ledger_entries")
@@ -63,7 +63,7 @@ export default async function ReportPreviewPage({
       .eq("report_id", reportId),
     supabase
       .from("report_notes")
-      .select("section, content, updated_by, updated_at")
+      .select("id, section, content, updated_by, updated_at")
       .eq("report_id", reportId),
   ]);
 
@@ -106,7 +106,7 @@ export default async function ReportPreviewPage({
       <p style={{ maxWidth: 960, margin: "0 auto 16px" }}>
         <Link href="/admin/clients">← 고객사 목록으로</Link>
       </p>
-      <ReportView
+      <AdminReportPreview
         client={{ companyName: client.company_name, ceoName: client.ceo_name, bizRegNo: client.biz_reg_no }}
         report={{ baseYear: report.base_year, compareYear: report.compare_year, currencyUnit: report.currency_unit }}
         incomeGrid={incomeGrid}
@@ -115,6 +115,7 @@ export default async function ReportPreviewPage({
         compareIncomeMajor={compareIncomeMajor}
         lastMonth={lastMonth}
         notes={(notes ?? []).map((n) => ({
+          id: n.id,
           section: n.section,
           content: n.content,
           updatedBy: n.updated_by,
