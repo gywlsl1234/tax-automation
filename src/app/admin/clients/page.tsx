@@ -7,8 +7,16 @@ export default async function AdminClientsPage() {
   const supabase = getSupabaseAdminClient();
   const { data: clients, error } = await supabase
     .from("clients")
-    .select("id, company_name, ceo_name, biz_reg_no, created_at, reports(id, base_year, status, created_at)")
+    .select(
+      "id, company_name, ceo_name, biz_reg_no, created_at, reports(id, base_year, compare_year, status, created_at)"
+    )
     .order("created_at", { ascending: false });
+
+  clients?.forEach((c) => {
+    c.reports?.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  });
 
   return (
     <main style={{ maxWidth: 800, margin: "40px auto", fontFamily: "sans-serif", padding: "0 16px" }}>
@@ -38,17 +46,24 @@ export default async function AdminClientsPage() {
                 <td style={td}>{c.ceo_name}</td>
                 <td style={td}>{c.biz_reg_no}</td>
                 <td style={td}>
-                  {(c.reports ?? []).length === 0
-                    ? "없음"
-                    : c.reports.map((r) => (
-                        <Link
-                          key={r.id}
-                          href={`/admin/reports/${r.id}/preview`}
-                          style={{ marginRight: 8, color: "#2563eb" }}
-                        >
-                          {r.base_year}년({r.status})
-                        </Link>
+                  {(c.reports ?? []).length === 0 ? (
+                    "없음"
+                  ) : (
+                    <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                      {c.reports.map((r, idx) => (
+                        <li key={r.id} style={{ marginBottom: 4 }}>
+                          <Link href={`/admin/reports/${r.id}/preview`} style={{ color: "#2563eb" }}>
+                            {r.base_year}년({r.status})
+                            {r.compare_year ? ` · 비교연도 ${r.compare_year}` : " · 비교연도 없음"}
+                            {idx === 0 && " (최신)"}
+                          </Link>
+                          <span style={{ color: "#999", marginLeft: 6 }}>
+                            {new Date(r.created_at).toLocaleString("ko-KR")}
+                          </span>
+                        </li>
                       ))}
+                    </ul>
+                  )}
                 </td>
               </tr>
             ))}
