@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ClientReportsPanel } from "@/components/admin/ClientReportsPanel";
 import { VatPeriodTypeSetting } from "@/components/admin/VatPeriodTypeSetting";
+import { ClientDeleteButton } from "@/components/admin/ClientDeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +42,10 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
       <p style={{ marginBottom: 16 }}>
         <Link href="/admin/clients">← 고객사 목록으로</Link>
       </p>
-      <h1 style={{ fontSize: 20, marginBottom: 16 }}>{client.company_name}</h1>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+        <h1 style={{ fontSize: 20, margin: 0 }}>{client.company_name}</h1>
+        <ClientDeleteButton clientId={client.id} companyName={client.company_name} />
+      </div>
 
       <table style={{ borderCollapse: "collapse", width: "100%", marginBottom: 32 }}>
         <tbody>

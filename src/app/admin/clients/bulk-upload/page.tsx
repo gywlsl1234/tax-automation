@@ -53,6 +53,8 @@ export default function ClientsBulkUploadPage() {
         덮어씁니다(업데이트). 신규 사업자등록번호는 새 거래처로 등록됩니다.
       </p>
       <p style={{ marginBottom: 16 }}>
+        {/* 페이지가 아니라 파일 다운로드용 API 라우트라서 next/link가 아닌 일반 링크를 쓴다. */}
+        {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
         <a href="/api/admin/clients/bulk-upload/template" style={{ color: "#2563eb", fontSize: 14 }}>
           샘플 엑셀 양식 다운로드 →
         </a>

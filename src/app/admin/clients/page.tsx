@@ -24,6 +24,7 @@ export default async function AdminClientsPage() {
       <h1 style={{ fontSize: 20, marginBottom: 8 }}>고객사 목록</h1>
       <p style={{ marginBottom: 24, display: "flex", gap: 16 }}>
         <Link href="/admin">← 대시보드로</Link>
+        <Link href="/admin/clients/new">거래처 추가</Link>
         <Link href="/admin/clients/bulk-upload">거래처 일괄 업로드</Link>
       </p>
 
