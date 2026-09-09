@@ -1,3 +1,5 @@
+import { roundTo10Won } from "@/lib/report/money";
+
 /**
  * 개인사업자 예상 종합소득세 "참고용" 단순 추정 모듈.
  *
@@ -59,9 +61,9 @@ export function estimateComprehensiveIncomeTax(params: {
 }): IncomeTaxEstimate {
   const monthsInYear = Math.max(1, Math.min(12, params.monthsInYear ?? 12));
   const months = Math.min(monthsInYear, Math.max(1, params.monthsElapsed));
-  const annualizedIncome = Math.round((params.cumulativeIncome / months) * monthsInYear);
-  const incomeTax = calcIncomeTax(annualizedIncome);
-  const localIncomeTax = Math.round(incomeTax * LOCAL_INCOME_TAX_RATE);
+  const annualizedIncome = roundTo10Won((params.cumulativeIncome / months) * monthsInYear);
+  const incomeTax = roundTo10Won(calcIncomeTax(annualizedIncome));
+  const localIncomeTax = roundTo10Won(incomeTax * LOCAL_INCOME_TAX_RATE);
   return {
     annualizedIncome,
     incomeTax,

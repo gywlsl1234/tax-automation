@@ -39,6 +39,7 @@ export async function POST(request: Request) {
           simplifiedVatRate: row.simplifiedVatRate,
           bizType: row.bizType,
           bizItem: row.bizItem,
+          openDate: row.openDate,
           contactName: row.contactName,
           phone: row.phone,
           email: row.email,

@@ -1,4 +1,5 @@
 import { projectRemainingMonths } from "./projection";
+import { roundTo10Won } from "./money";
 
 export type VatPeriodType = "semiannual" | "quarterly";
 
@@ -66,8 +67,8 @@ export function estimateVat(params: {
   const projectedPurchase = projectRemainingMonths(monthlyPurchaseVat, lastMonth, firstOperatingMonth);
 
   return periodsFor(periodType).map(({ label, months }) => {
-    const salesVat = months.reduce((s, m) => s + projectedSales[m - 1], 0);
-    const purchaseVat = months.reduce((s, m) => s + projectedPurchase[m - 1], 0);
+    const salesVat = roundTo10Won(months.reduce((s, m) => s + projectedSales[m - 1], 0));
+    const purchaseVat = roundTo10Won(months.reduce((s, m) => s + projectedPurchase[m - 1], 0));
     return { label, months, salesVat, purchaseVat, payableVat: salesVat - purchaseVat, status: statusFor(months, lastMonth) };
   });
 }
@@ -100,8 +101,8 @@ export function estimateSimplifiedVat(params: {
   return periodsFor(periodType).map(({ label, months }) => {
     const salesAmount = months.reduce((s, m) => s + projectedSales[m - 1], 0);
     const purchaseAmount = months.reduce((s, m) => s + projectedPurchase[m - 1], 0);
-    const salesVat = Math.round(salesAmount * rate * 0.1);
-    const purchaseVat = Math.round(purchaseAmount * SIMPLIFIED_PURCHASE_CREDIT_RATE);
+    const salesVat = roundTo10Won(salesAmount * rate * 0.1);
+    const purchaseVat = roundTo10Won(purchaseAmount * SIMPLIFIED_PURCHASE_CREDIT_RATE);
     return {
       label,
       months,

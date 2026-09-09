@@ -26,7 +26,7 @@ export function generateInsights(params: {
   operatingProfitRatio: number | null; // 영업이익 / 매출액
   topVendorRatio: number | null; // 매출 거래처 중 1위 비중(0~1)
   upcomingVat: { label: string; payableVat: number } | null;
-  /** 기준연도 중 개업한 신규 사업자면 개업월(1~12), 아니면 1. */
+  /** 연환산 계산에 쓰인 실제 영업 시작월(1~12). 정상 영업 중이면 1. */
   firstOperatingMonth: number;
 }): Insight[] {
   const insights: Insight[] = [];
@@ -34,7 +34,7 @@ export function generateInsights(params: {
   if (params.firstOperatingMonth > 1) {
     insights.push({
       type: "info",
-      text: `${params.firstOperatingMonth}월에 개업한 신규 사업자로, 예상치는 개업월 이후 실적만을 기준으로 계산되었습니다.`,
+      text: `${params.firstOperatingMonth}월부터 실적이 있는 신규 사업자로, 예상치는 ${params.firstOperatingMonth}월 이후 실적만을 기준으로 계산되었습니다.`,
     });
   }
 

@@ -11,6 +11,7 @@ const HEADERS = {
   simplifiedVatRate: ["부가가치율"],
   bizType: ["업태"],
   bizItem: ["종목"],
+  openDate: ["개업일자", "개업일"],
   contactName: ["담당자명", "담당자"],
   phone: ["연락처", "전화번호"],
   email: ["이메일"],
@@ -67,6 +68,25 @@ function parseFiscalMonth(raw: string): number | null {
   return month >= 1 && month <= 12 ? month : null;
 }
 
+/** 날짜 셀(Date 타입) 또는 "2024-4-1"/"2024.4.1"/"2024/4/1" 형태의 텍스트를
+ * YYYY-MM-DD로 정규화한다. 인식할 수 없는 값은 null(빈 값과 동일하게 무시). */
+function parseOpenDate(row: ExcelJS.Row, col: number | undefined): string | null {
+  if (!col) return null;
+  const cell = row.getCell(col);
+  const value = cell.value;
+  if (value instanceof Date) {
+    const y = value.getUTCFullYear();
+    const m = String(value.getUTCMonth() + 1).padStart(2, "0");
+    const d = String(value.getUTCDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  const text = cell.text.trim();
+  const match = text.match(/^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/);
+  if (!match) return null;
+  const [, y, m, d] = match;
+  return `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`;
+}
+
 const BIZ_REG_NO_DIGITS = /^\d{10}$/;
 
 /**
@@ -119,6 +139,7 @@ export function parseClientsBulkSheet(sheet: ExcelJS.Worksheet): {
       simplifiedVatRate: parsePercent(cellText(row, columns.simplifiedVatRate)),
       bizType: cellText(row, columns.bizType) || null,
       bizItem: cellText(row, columns.bizItem) || null,
+      openDate: parseOpenDate(row, columns.openDate),
       contactName: cellText(row, columns.contactName) || null,
       phone: cellText(row, columns.phone) || null,
       email: cellText(row, columns.email) || null,

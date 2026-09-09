@@ -67,6 +67,8 @@ export interface ParsedClientBulkRow {
   simplifiedVatRate: number | null;
   bizType: string | null;
   bizItem: string | null;
+  /** 개업일자 (YYYY-MM-DD). 연중 개업한 신규 사업자의 예상치 계산 보정에 쓰인다. */
+  openDate: string | null;
   contactName: string | null;
   phone: string | null;
   email: string | null;

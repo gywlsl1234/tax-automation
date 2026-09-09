@@ -1,3 +1,5 @@
+import { roundTo10Won } from "@/lib/report/money";
+
 /**
  * 법인사업자 예상 법인세 "참고용" 단순 추정 모듈. incomeTax.ts와 동일한
  * 시그니처 패턴(입력: 누적 손익, 출력: {annualizedIncome, ...Tax})을 따른다.
@@ -51,9 +53,9 @@ export function estimateCorporateTax(params: {
 }): CorporateTaxEstimate {
   const monthsInYear = Math.max(1, Math.min(12, params.monthsInYear ?? 12));
   const months = Math.min(monthsInYear, Math.max(1, params.monthsElapsed));
-  const annualizedIncome = Math.round((params.cumulativeIncome / months) * monthsInYear);
-  const corpTax = calcCorpTax(annualizedIncome);
-  const localCorpTax = Math.round(corpTax * LOCAL_CORP_TAX_RATE);
+  const annualizedIncome = roundTo10Won((params.cumulativeIncome / months) * monthsInYear);
+  const corpTax = roundTo10Won(calcCorpTax(annualizedIncome));
+  const localCorpTax = roundTo10Won(corpTax * LOCAL_CORP_TAX_RATE);
   return {
     annualizedIncome,
     corpTax,

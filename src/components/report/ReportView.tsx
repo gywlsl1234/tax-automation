@@ -68,8 +68,9 @@ export interface ReportViewData {
   compareIncomeMajor: IncomeStatementAccountRow[] | null;
   /** 당기 데이터가 입력된 마지막 달 (동기간 비교 라벨 표시용, 1~12). 없으면 12. */
   lastMonth: number;
-  /** 기준연도 중 실제 영업을 시작한 달(1~12). 연중 개업한 신규 사업자가 아니면 1.
-   * 미래월 예상치/연환산 세액·부가세 계산에서 개업 전 달을 분모에서 제외하는 데 쓴다. */
+  /** 기준연도 중 실제 매출/매입 실적이 처음 잡힌 달(1~12). 연중 개업한 신규
+   * 사업자가 아니거나, 개업월부터 곧바로 실적이 있으면 등록된 개업월과 같다.
+   * 미래월 예상치/연환산 세액·부가세 계산에서 실적 없는 달을 분모에서 제외하는 데 쓴다. */
   firstOperatingMonth: number;
   /** 예상 종합소득세 계산에 쓰인 누적 당기순이익. */
   cumulativeIncome: number;

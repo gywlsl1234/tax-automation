@@ -18,16 +18,47 @@ import { estimateCorporateTax } from "@/lib/tax/corporateTax";
 import { estimateVat, estimateSimplifiedVat, isVatEnabled, type VatPeriodEstimate, type VatPeriodType, type VatTaxpayerType } from "./vat";
 
 /**
- * 연중 개업한 신규 사업자의 개업월(1~12)을 구한다. 기준연도(year) 이전에
- * 개업했거나 개업일 정보가 없으면 1월부터 정상 영업한 것으로 본다(기존 동작
- * 유지) — 개업 전 달(실적 0)까지 "경과 개월"에 포함시켜 월평균을 낮추는
- * 왜곡을 막기 위한 값이다(연환산/부가세/미래월 예상치 계산에서 공용으로 쓴다).
+ * 등록된 개업일자(clients.open_date)로부터 개업월(1~12)을 구한다. 기준연도(year)
+ * 이전에 개업했거나 개업일 정보가 없으면 1월부터 정상 영업한 것으로 본다(기존
+ * 동작 유지).
  */
-function computeFirstOperatingMonth(openDate: string | null, year: number): number {
+function computeRegisteredOpenMonth(openDate: string | null, year: number): number {
   if (!openDate) return 1;
   const [openYear, openMonth] = openDate.split("-").map(Number);
   if (!openYear || !openMonth || openYear !== year) return 1;
   return Math.min(12, Math.max(1, openMonth));
+}
+
+/**
+ * 등록된 개업월이라도 그 달에 실제 매출/매입 실적이 전혀 없을 수 있다(예: 개업
+ * 준비 기간을 거쳐 첫 거래가 다음 달 이후부터 발생). 이 경우 등록된 개업월을
+ * 그대로 "경과 개월"의 시작점으로 쓰면, 실적 없는 개업월이 여전히 분모에 남아
+ * 월평균이 낮게 계산되는 왜곡이 사라지지 않는다.
+ *
+ * 그래서 등록된 개업월부터 lastMonth까지 손익계산서 매출액·매출장·매입장 중
+ * 하나라도 값이 잡히는 첫 달을 찾아 "실제 영업 시작월"로 쓴다. 그 구간에
+ * 데이터가 전혀 없으면(아직 실적 반영 전) 등록된 개업월을 그대로 쓴다 — 더
+ * 나은 정보가 없으므로 기존 동작에서 벗어나지 않는다.
+ */
+function computeEffectiveFirstOperatingMonth(
+  registeredOpenMonth: number,
+  lastMonth: number,
+  incomeSalesMonthly: number[],
+  ledgerSalesMonthly: number[],
+  ledgerPurchaseMonthly: number[]
+): number {
+  if (registeredOpenMonth <= 1) return 1;
+  for (let m = registeredOpenMonth; m <= lastMonth; m++) {
+    const idx = m - 1;
+    if (
+      (incomeSalesMonthly[idx] ?? 0) !== 0 ||
+      (ledgerSalesMonthly[idx] ?? 0) !== 0 ||
+      (ledgerPurchaseMonthly[idx] ?? 0) !== 0
+    ) {
+      return m;
+    }
+  }
+  return registeredOpenMonth;
 }
 
 export type LoadedReportViewData = Omit<
@@ -107,7 +138,15 @@ export const loadReportViewData = cache(async function loadReportViewData(
   };
 
   const lastMonth = lastMonthWithAnyData(incomeItems ?? [], year);
-  const firstOperatingMonth = computeFirstOperatingMonth(client.open_date, year);
+  const registeredOpenMonth = computeRegisteredOpenMonth(client.open_date, year);
+  const salesTotalRow = findMajorCategoryTotal(incomeGrid.major, "매출액");
+  const firstOperatingMonth = computeEffectiveFirstOperatingMonth(
+    registeredOpenMonth,
+    lastMonth,
+    salesTotalRow?.monthly ?? new Array(12).fill(0),
+    sales.monthly,
+    purchase.monthly
+  );
   const operatingMonthsSoFar = Math.max(1, lastMonth - firstOperatingMonth + 1);
   const monthsInYear = Math.max(1, 13 - firstOperatingMonth);
   const compareIncomeMajor = compareYear

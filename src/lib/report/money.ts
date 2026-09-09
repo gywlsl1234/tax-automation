@@ -1,3 +1,8 @@
+/** 예상 세액/부가세 표기를 10원 단위로 반올림한다 (1원 자리 절사 목적). */
+export function roundTo10Won(n: number): number {
+  return Math.round(n / 10) * 10;
+}
+
 /** 억/만원 단위를 자동으로 골라 짧게 표시한다 (차트 축, KPI 보조표시 등). */
 export function formatCompactWon(n: number): string {
   const abs = Math.abs(n);
