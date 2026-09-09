@@ -39,11 +39,19 @@ function calcCorpTax(taxBase: number): number {
 
 /**
  * @param cumulativeIncome 기준연도 들어 지금까지의 누적 당기순이익(과세표준 근사치)
- * @param monthsElapsed 누적 손익이 반영된 개월 수 (1~12) — 이 개월수 기준으로 연 환산한다
+ * @param monthsElapsed 누적 손익이 반영된 실제 영업 개월 수 — 이 개월수 기준으로 연 환산한다
+ * @param monthsInYear 연 환산의 기준이 되는 총 개월 수(기본 12). 연중 개업한 신규
+ * 법인은 개업월부터 12월까지의 개월 수를 넘겨, 영업하지도 않은 개업 전 달까지
+ * "연간"에 포함시켜 월평균을 낮추는 왜곡을 막는다.
  */
-export function estimateCorporateTax(params: { cumulativeIncome: number; monthsElapsed: number }): CorporateTaxEstimate {
-  const months = Math.min(12, Math.max(1, params.monthsElapsed));
-  const annualizedIncome = Math.round((params.cumulativeIncome / months) * 12);
+export function estimateCorporateTax(params: {
+  cumulativeIncome: number;
+  monthsElapsed: number;
+  monthsInYear?: number;
+}): CorporateTaxEstimate {
+  const monthsInYear = Math.max(1, Math.min(12, params.monthsInYear ?? 12));
+  const months = Math.min(monthsInYear, Math.max(1, params.monthsElapsed));
+  const annualizedIncome = Math.round((params.cumulativeIncome / months) * monthsInYear);
   const corpTax = calcCorpTax(annualizedIncome);
   const localCorpTax = Math.round(corpTax * LOCAL_CORP_TAX_RATE);
   return {

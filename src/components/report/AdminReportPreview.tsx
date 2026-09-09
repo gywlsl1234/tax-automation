@@ -21,6 +21,15 @@ export function AdminReportPreview({
 }: ReportViewData & { reportId: string }) {
   const [data, setData] = useState(initialData);
 
+  /** loadReportViewData.ts의 computeFirstOperatingMonth 이후 로직과 동일하게,
+   * 연중 개업한 신규 사업자는 개업 전 달을 "경과 개월"/"연간 개월"에서 제외한다
+   * (수동입력을 껐을 때 되돌아갈 자동계산 값도 서버와 동일한 결과가 나오도록). */
+  function operatingMonthsFor(prev: typeof data) {
+    const monthsElapsed = Math.max(1, prev.lastMonth - prev.firstOperatingMonth + 1);
+    const monthsInYear = Math.max(1, 13 - prev.firstOperatingMonth);
+    return { monthsElapsed, monthsInYear };
+  }
+
   async function handleEditIncomeCell(itemId: string, newAmount: number) {
     const res = await fetch(`/api/admin/income-statement-items/${itemId}`, {
       method: "PATCH",
@@ -99,7 +108,7 @@ export function AdminReportPreview({
             isManualOverride: true,
           }
         : {
-            ...estimateComprehensiveIncomeTax({ cumulativeIncome: prev.cumulativeIncome, monthsElapsed: prev.lastMonth }),
+            ...estimateComprehensiveIncomeTax({ cumulativeIncome: prev.cumulativeIncome, ...operatingMonthsFor(prev) }),
             isManualOverride: false,
           },
     }));
@@ -129,7 +138,7 @@ export function AdminReportPreview({
             isManualOverride: true,
           }
         : {
-            ...estimateCorporateTax({ cumulativeIncome: prev.cumulativeIncome, monthsElapsed: prev.lastMonth }),
+            ...estimateCorporateTax({ cumulativeIncome: prev.cumulativeIncome, ...operatingMonthsFor(prev) }),
             isManualOverride: false,
           },
     }));
@@ -144,6 +153,7 @@ export function AdminReportPreview({
         lastMonth: prev.lastMonth,
         periodType: prev.client.vatPeriodType,
         vatRatePercent: prev.client.simplifiedVatRate ?? 0,
+        firstOperatingMonth: prev.firstOperatingMonth,
       });
     }
     return estimateVat({
@@ -151,6 +161,7 @@ export function AdminReportPreview({
       monthlyPurchaseVat: prev.monthlyPurchaseVat,
       lastMonth: prev.lastMonth,
       periodType: prev.client.vatPeriodType,
+      firstOperatingMonth: prev.firstOperatingMonth,
     });
   }
 

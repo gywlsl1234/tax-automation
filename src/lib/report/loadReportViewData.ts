@@ -17,6 +17,19 @@ import { estimateComprehensiveIncomeTax } from "@/lib/tax/incomeTax";
 import { estimateCorporateTax } from "@/lib/tax/corporateTax";
 import { estimateVat, estimateSimplifiedVat, isVatEnabled, type VatPeriodEstimate, type VatPeriodType, type VatTaxpayerType } from "./vat";
 
+/**
+ * 연중 개업한 신규 사업자의 개업월(1~12)을 구한다. 기준연도(year) 이전에
+ * 개업했거나 개업일 정보가 없으면 1월부터 정상 영업한 것으로 본다(기존 동작
+ * 유지) — 개업 전 달(실적 0)까지 "경과 개월"에 포함시켜 월평균을 낮추는
+ * 왜곡을 막기 위한 값이다(연환산/부가세/미래월 예상치 계산에서 공용으로 쓴다).
+ */
+function computeFirstOperatingMonth(openDate: string | null, year: number): number {
+  if (!openDate) return 1;
+  const [openYear, openMonth] = openDate.split("-").map(Number);
+  if (!openYear || !openMonth || openYear !== year) return 1;
+  return Math.min(12, Math.max(1, openMonth));
+}
+
 export type LoadedReportViewData = Omit<
   ReportViewData,
   "onEditIncomeCell" | "onEditNote" | "onEditTaxOverride" | "onEditVatOverride" | "onEditCorpTaxOverride"
@@ -49,7 +62,9 @@ export const loadReportViewData = cache(async function loadReportViewData(
 
   const { data: client, error: clientError } = await supabase
     .from("clients")
-    .select("company_name, ceo_name, biz_reg_no, entity_type, vat_period_type, vat_taxpayer_type, simplified_vat_rate")
+    .select(
+      "company_name, ceo_name, biz_reg_no, entity_type, vat_period_type, vat_taxpayer_type, simplified_vat_rate, open_date"
+    )
     .eq("id", report.client_id)
     .single();
   if (clientError || !client) {
@@ -92,6 +107,9 @@ export const loadReportViewData = cache(async function loadReportViewData(
   };
 
   const lastMonth = lastMonthWithAnyData(incomeItems ?? [], year);
+  const firstOperatingMonth = computeFirstOperatingMonth(client.open_date, year);
+  const operatingMonthsSoFar = Math.max(1, lastMonth - firstOperatingMonth + 1);
+  const monthsInYear = Math.max(1, 13 - firstOperatingMonth);
   const compareIncomeMajor = compareYear
     ? buildIncomeStatementGrid(incomeItems ?? [], compareYear).major.map((row) => ({
         ...row,
@@ -115,7 +133,10 @@ export const loadReportViewData = cache(async function loadReportViewData(
         totalTax: (report.manual_income_tax ?? 0) + (report.manual_local_tax ?? 0),
         isManualOverride: true,
       }
-    : { ...estimateComprehensiveIncomeTax({ cumulativeIncome, monthsElapsed: lastMonth }), isManualOverride: false };
+    : {
+        ...estimateComprehensiveIncomeTax({ cumulativeIncome, monthsElapsed: operatingMonthsSoFar, monthsInYear }),
+        isManualOverride: false,
+      };
 
   const corpTaxOverrideInput = {
     enabled: report.manual_corp_tax_override,
@@ -131,7 +152,10 @@ export const loadReportViewData = cache(async function loadReportViewData(
         totalTax: (report.manual_corp_tax ?? 0) + (report.manual_corp_local_tax ?? 0),
         isManualOverride: true,
       }
-    : { ...estimateCorporateTax({ cumulativeIncome, monthsElapsed: lastMonth }), isManualOverride: false };
+    : {
+        ...estimateCorporateTax({ cumulativeIncome, monthsElapsed: operatingMonthsSoFar, monthsInYear }),
+        isManualOverride: false,
+      };
 
   const vatPeriodType = (client.vat_period_type as VatPeriodType) ?? "semiannual";
   const vatTaxpayerType = (client.vat_taxpayer_type as VatTaxpayerType) ?? "general";
@@ -153,9 +177,10 @@ export const loadReportViewData = cache(async function loadReportViewData(
         lastMonth,
         periodType: vatPeriodType,
         vatRatePercent: simplifiedVatRate ?? 0,
+        firstOperatingMonth,
       });
     }
-    return estimateVat({ monthlySalesVat, monthlyPurchaseVat, lastMonth, periodType: vatPeriodType });
+    return estimateVat({ monthlySalesVat, monthlyPurchaseVat, lastMonth, periodType: vatPeriodType, firstOperatingMonth });
   }
 
   const vatEstimate: VatPeriodEstimate[] =
@@ -196,6 +221,7 @@ export const loadReportViewData = cache(async function loadReportViewData(
       purchase,
       compareIncomeMajor,
       lastMonth,
+      firstOperatingMonth,
       notes: (notes ?? []).map((n) => ({
         id: n.id,
         section: n.section,

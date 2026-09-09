@@ -68,6 +68,9 @@ export interface ReportViewData {
   compareIncomeMajor: IncomeStatementAccountRow[] | null;
   /** 당기 데이터가 입력된 마지막 달 (동기간 비교 라벨 표시용, 1~12). 없으면 12. */
   lastMonth: number;
+  /** 기준연도 중 실제 영업을 시작한 달(1~12). 연중 개업한 신규 사업자가 아니면 1.
+   * 미래월 예상치/연환산 세액·부가세 계산에서 개업 전 달을 분모에서 제외하는 데 쓴다. */
+  firstOperatingMonth: number;
   /** 예상 종합소득세 계산에 쓰인 누적 당기순이익. */
   cumulativeIncome: number;
   taxEstimate: TaxEstimate;
@@ -105,6 +108,7 @@ export function ReportView({
   notes,
   compareIncomeMajor,
   lastMonth,
+  firstOperatingMonth,
   cumulativeIncome,
   taxEstimate,
   taxOverrideInput,
@@ -156,6 +160,7 @@ export function ReportView({
     operatingProfitRatio: operatingProfit && salesTotal?.total ? operatingProfit.total / salesTotal.total : null,
     topVendorRatio,
     upcomingVat: upcomingVatPeriod ? { label: upcomingVatPeriod.label, payableVat: upcomingVatPeriod.payableVat } : null,
+    firstOperatingMonth,
   });
 
   return (
@@ -237,13 +242,17 @@ export function ReportView({
           <div className={styles.chartGrid}>
             <MonthlyBarChart
               title="월별 매출액"
-              monthly={projectRemainingMonths(salesTotal?.monthly ?? new Array(12).fill(0), lastMonth)}
+              monthly={projectRemainingMonths(salesTotal?.monthly ?? new Array(12).fill(0), lastMonth, firstOperatingMonth)}
               color={COLORS.sales}
               lastMonth={lastMonth}
             />
             <MonthlyBarChart
               title="월별 영업이익"
-              monthly={projectRemainingMonths(operatingProfit?.monthly ?? new Array(12).fill(0), lastMonth)}
+              monthly={projectRemainingMonths(
+                operatingProfit?.monthly ?? new Array(12).fill(0),
+                lastMonth,
+                firstOperatingMonth
+              )}
               color={COLORS.profit}
               lastMonth={lastMonth}
             />

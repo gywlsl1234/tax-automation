@@ -58,10 +58,12 @@ export function estimateVat(params: {
   monthlyPurchaseVat: number[];
   lastMonth: number;
   periodType: VatPeriodType;
+  /** 연중 개업한 신규 사업자의 개업월(1~12, 기본 1) — projectRemainingMonths 참고. */
+  firstOperatingMonth?: number;
 }): VatPeriodEstimate[] {
-  const { monthlySalesVat, monthlyPurchaseVat, lastMonth, periodType } = params;
-  const projectedSales = projectRemainingMonths(monthlySalesVat, lastMonth);
-  const projectedPurchase = projectRemainingMonths(monthlyPurchaseVat, lastMonth);
+  const { monthlySalesVat, monthlyPurchaseVat, lastMonth, periodType, firstOperatingMonth = 1 } = params;
+  const projectedSales = projectRemainingMonths(monthlySalesVat, lastMonth, firstOperatingMonth);
+  const projectedPurchase = projectRemainingMonths(monthlyPurchaseVat, lastMonth, firstOperatingMonth);
 
   return periodsFor(periodType).map(({ label, months }) => {
     const salesVat = months.reduce((s, m) => s + projectedSales[m - 1], 0);
@@ -86,10 +88,13 @@ export function estimateSimplifiedVat(params: {
   lastMonth: number;
   periodType: VatPeriodType;
   vatRatePercent: number; // 업종별 부가가치율(%), 예: 15
+  /** 연중 개업한 신규 사업자의 개업월(1~12, 기본 1) — projectRemainingMonths 참고. */
+  firstOperatingMonth?: number;
 }): VatPeriodEstimate[] {
-  const { monthlySalesAmount, monthlyPurchaseAmount, lastMonth, periodType, vatRatePercent } = params;
-  const projectedSales = projectRemainingMonths(monthlySalesAmount, lastMonth);
-  const projectedPurchase = projectRemainingMonths(monthlyPurchaseAmount, lastMonth);
+  const { monthlySalesAmount, monthlyPurchaseAmount, lastMonth, periodType, vatRatePercent, firstOperatingMonth = 1 } =
+    params;
+  const projectedSales = projectRemainingMonths(monthlySalesAmount, lastMonth, firstOperatingMonth);
+  const projectedPurchase = projectRemainingMonths(monthlyPurchaseAmount, lastMonth, firstOperatingMonth);
   const rate = vatRatePercent / 100;
 
   return periodsFor(periodType).map(({ label, months }) => {
