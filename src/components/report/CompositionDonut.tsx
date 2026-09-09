@@ -22,7 +22,7 @@ export function CompositionDonut({ title, data }: CompositionDonutProps) {
   return (
     <div>
       <p style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 8 }}>{title}</p>
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
         <div style={{ width: 140, height: 140, flexShrink: 0 }}>
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>

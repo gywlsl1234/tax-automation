@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ClientReportsPanel } from "@/components/admin/ClientReportsPanel";
+import { VatPeriodTypeSetting } from "@/components/admin/VatPeriodTypeSetting";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,9 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
 
   const { data: client, error: clientError } = await supabase
     .from("clients")
-    .select("id, company_name, ceo_name, biz_reg_no, entity_type, biz_type, biz_item, contact_name, phone, email, address")
+    .select(
+      "id, company_name, ceo_name, biz_reg_no, entity_type, biz_type, biz_item, contact_name, phone, email, address, vat_period_type"
+    )
     .eq("id", clientId)
     .maybeSingle();
 
@@ -73,6 +76,15 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
           <tr>
             <td style={tdLabel}>소재지</td>
             <td style={td}>{client.address ?? "-"}</td>
+          </tr>
+          <tr>
+            <td style={tdLabel}>부가세 신고주기</td>
+            <td style={td}>
+              <VatPeriodTypeSetting
+                clientId={client.id}
+                initialValue={(client.vat_period_type as "semiannual" | "quarterly") ?? "semiannual"}
+              />
+            </td>
           </tr>
         </tbody>
       </table>

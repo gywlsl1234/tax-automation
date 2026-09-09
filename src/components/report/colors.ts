@@ -1,8 +1,12 @@
-// dataviz 스킬의 검증된 기본 팔레트에서 그대로 가져온 값 (light 모드).
+// 브랜드 색상(매출/이익/매입/부가세)은 작업지시서(UI/UX 고도화) 16번 색상값을
+// 그대로 반영한다. categorical(구성비 차트 다중 계열용)만 dataviz 스킬의
+// 접근성 검증된 팔레트를 그대로 유지한다 — 임의로 브랜드 색과 맞추면 계열간
+// 대비가 깨질 수 있다.
 export const COLORS = {
-  sales: "#1baf7a", // 카테고리 슬롯 3 (aqua)
-  purchase: "#eb6834", // 카테고리 슬롯 2 (orange)
-  profit: "#2a78d6", // 카테고리 슬롯 1 (blue)
+  sales: "#10B981", // Primary Green
+  profit: "#2F7BD8", // Profit Blue
+  purchase: "#FF7A45", // Purchase Orange
+  vat: "#F59E0B", // VAT Amber
   categorical: [
     "#2a78d6",
     "#eb6834",
@@ -15,9 +19,9 @@ export const COLORS = {
   ],
   good: "#0ca30c",
   critical: "#d03b3b",
-  textPrimary: "#0b0b0b",
-  textSecondary: "#52514e",
+  textPrimary: "#111827",
+  textSecondary: "#6B7280",
   muted: "#898781",
-  gridline: "#e1e0d9",
+  gridline: "#E5E7EB",
   surface: "#fcfcfb",
 } as const;

@@ -1,0 +1,17 @@
+.desktopTable {
+  display: block;
+}
+.mobileCards {
+  display: none;
+}
+
+/* PC 표를 축소해서 보여주지 않고, 좁은 화면에서는 카드 목록으로 완전히
+   레이아웃을 바꾼다(작업지시서 15번). */
+@media (max-width: 640px) {
+  .desktopTable {
+    display: none;
+  }
+  .mobileCards {
+    display: flex;
+  }
+}

@@ -112,7 +112,7 @@ export function monthlyLedgerTotals(
   entries: LedgerEntryRow[],
   entryType: LedgerEntryType,
   year: number,
-  field: "supply_amount" | "total_amount" = "supply_amount"
+  field: "supply_amount" | "total_amount" | "vat_amount" = "supply_amount"
 ): number[] {
   const monthly = new Array(12).fill(0);
   for (const entry of entries) {

@@ -14,6 +14,7 @@ import {
   topVendors,
 } from "./aggregate";
 import { estimateComprehensiveIncomeTax } from "@/lib/tax/incomeTax";
+import { estimateVat, type VatPeriodEstimate, type VatPeriodType } from "./vat";
 
 export type LoadedReportViewData = Omit<ReportViewData, "onEditIncomeCell" | "onEditNote" | "onEditTaxOverride">;
 
@@ -34,7 +35,7 @@ export const loadReportViewData = cache(async function loadReportViewData(
   const { data: report, error: reportError } = await supabase
     .from("reports")
     .select(
-      "id, base_year, report_month, compare_year, currency_unit, client_id, manual_tax_override, manual_annual_income, manual_income_tax, manual_local_tax"
+      "id, base_year, report_month, compare_year, currency_unit, client_id, manual_tax_override, manual_annual_income, manual_income_tax, manual_local_tax, manual_vat_override, manual_vat_periods"
     )
     .eq("id", reportId)
     .single();
@@ -44,7 +45,7 @@ export const loadReportViewData = cache(async function loadReportViewData(
 
   const { data: client, error: clientError } = await supabase
     .from("clients")
-    .select("company_name, ceo_name, biz_reg_no, entity_type")
+    .select("company_name, ceo_name, biz_reg_no, entity_type, vat_period_type")
     .eq("id", report.client_id)
     .single();
   if (clientError || !client) {
@@ -112,6 +113,18 @@ export const loadReportViewData = cache(async function loadReportViewData(
       }
     : { ...estimateComprehensiveIncomeTax({ cumulativeIncome, monthsElapsed: lastMonth }), isManualOverride: false };
 
+  const vatPeriodType = (client.vat_period_type as VatPeriodType) ?? "semiannual";
+  const monthlySalesVat = monthlyLedgerTotals(entries, "매출", year, "vat_amount");
+  const monthlyPurchaseVat = monthlyLedgerTotals(entries, "매입", year, "vat_amount");
+  const vatOverrideInput = {
+    enabled: report.manual_vat_override,
+    periods: (report.manual_vat_periods as VatPeriodEstimate[] | null) ?? null,
+  };
+  const vatEstimate: VatPeriodEstimate[] =
+    report.manual_vat_override && vatOverrideInput.periods
+      ? vatOverrideInput.periods.map((p) => ({ ...p, status: "manual" as const }))
+      : estimateVat({ monthlySalesVat, monthlyPurchaseVat, lastMonth, periodType: vatPeriodType });
+
   return {
     ok: true,
     data: {
@@ -120,10 +133,15 @@ export const loadReportViewData = cache(async function loadReportViewData(
         ceoName: client.ceo_name,
         bizRegNo: client.biz_reg_no,
         entityType: client.entity_type as "individual" | "corporate",
+        vatPeriodType,
       },
       cumulativeIncome,
       taxEstimate,
       taxOverrideInput,
+      vatEstimate,
+      vatOverrideInput,
+      monthlySalesVat,
+      monthlyPurchaseVat,
       report: {
         baseYear: report.base_year,
         reportMonth: report.report_month,

@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { estimateComprehensiveIncomeTax } from "@/lib/tax/incomeTax";
+import { estimateVat } from "@/lib/report/vat";
 import { ReportView, type ReportViewData } from "./ReportView";
 import type { TaxOverrideInput } from "./IncomeTaxSection";
+import type { VatOverrideInput } from "./VatSection";
 
 /**
  * 관리자 미리보기 전용 래퍼. ReportView는 순수 표시 컴포넌트로 유지하고,
@@ -101,12 +103,44 @@ export function AdminReportPreview({
     }));
   }
 
+  async function handleEditVatOverride(input: VatOverrideInput) {
+    const res = await fetch(`/api/admin/reports/${reportId}/vat-override`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      window.alert(json.error ?? "수정에 실패했습니다.");
+      return;
+    }
+
+    setData((prev) => ({
+      ...prev,
+      vatOverrideInput: input,
+      vatEstimate:
+        input.enabled && input.periods
+          ? input.periods.map((p, idx) => ({
+              ...p,
+              months: prev.vatEstimate[idx]?.months ?? [],
+              status: "manual" as const,
+            }))
+          : estimateVat({
+              monthlySalesVat: prev.monthlySalesVat,
+              monthlyPurchaseVat: prev.monthlyPurchaseVat,
+              lastMonth: prev.lastMonth,
+              periodType: prev.client.vatPeriodType,
+            }),
+    }));
+  }
+
   return (
     <ReportView
       {...data}
       onEditIncomeCell={handleEditIncomeCell}
       onEditNote={handleEditNote}
       onEditTaxOverride={handleEditTaxOverride}
+      onEditVatOverride={handleEditVatOverride}
     />
   );
 }

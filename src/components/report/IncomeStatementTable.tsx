@@ -11,6 +11,14 @@ interface IncomeStatementTableProps {
   major: IncomeStatementAccountRow[];
   detail: IncomeStatementAccountRow[];
   onEditCell?: OnEditIncomeCell;
+  /** 제공되면 1~lastMonth까지만 표시하고 "N월까지 누계"로 제목/합계를 계산한다.
+   * 없거나 12면 기존처럼 12개월 전체를 보여준다(하위 호환). */
+  baseYear?: number;
+  lastMonth?: number;
+}
+
+function sumCellsThrough(cells: IncomeStatementCell[], throughMonth: number): number {
+  return cells.slice(0, throughMonth).reduce((s, c) => s + c.amount, 0);
 }
 
 function formatNumber(n: number) {
@@ -102,10 +110,12 @@ function Table({
   rows,
   bold,
   onEditCell,
+  visibleMonths,
 }: {
   rows: IncomeStatementAccountRow[];
   bold?: boolean;
   onEditCell?: OnEditIncomeCell;
+  visibleMonths: number;
 }) {
   return (
     <div style={{ overflowX: "auto" }}>
@@ -113,7 +123,7 @@ function Table({
         <thead>
           <tr>
             <th style={{ ...th, position: "sticky", left: 0, background: "white" }}>과목</th>
-            {Array.from({ length: 12 }, (_, i) => (
+            {Array.from({ length: visibleMonths }, (_, i) => (
               <th key={i} style={{ ...th, textAlign: "right" }}>
                 {i + 1}월
               </th>
@@ -135,10 +145,12 @@ function Table({
               >
                 {row.accountName}
               </td>
-              {row.cells.map((cell, i) => (
+              {row.cells.slice(0, visibleMonths).map((cell, i) => (
                 <EditableCell key={i} cell={cell} onEditCell={onEditCell} />
               ))}
-              <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>{formatNumber(row.total)}</td>
+              <td style={{ ...td, textAlign: "right", fontWeight: 600 }}>
+                {formatNumber(sumCellsThrough(row.cells, visibleMonths))}
+              </td>
             </tr>
           ))}
         </tbody>
@@ -147,22 +159,64 @@ function Table({
   );
 }
 
-export function IncomeStatementTable({ major, detail, onEditCell }: IncomeStatementTableProps) {
+function SummaryTable({ major, visibleMonths }: { major: IncomeStatementAccountRow[]; visibleMonths: number }) {
+  const salesRow = major.find((r) => r.accountName.includes("매출액"));
+  const salesTotal = salesRow ? sumCellsThrough(salesRow.cells, visibleMonths) : 0;
+
+  return (
+    <div style={{ overflowX: "auto" }}>
+      <table style={{ borderCollapse: "collapse", width: "100%", fontSize: 13, maxWidth: 480 }}>
+        <thead>
+          <tr>
+            <th style={th}>구분</th>
+            <th style={{ ...th, textAlign: "right" }}>금액</th>
+            <th style={{ ...th, textAlign: "right" }}>매출 대비</th>
+          </tr>
+        </thead>
+        <tbody>
+          {major.map((row) => {
+            const amount = sumCellsThrough(row.cells, visibleMonths);
+            const ratio = salesTotal !== 0 ? (amount / salesTotal) * 100 : 0;
+            return (
+              <tr key={row.accountName}>
+                <td style={{ ...td, fontWeight: row.isMajor ? 600 : 400 }}>{row.accountName}</td>
+                <td style={{ ...td, textAlign: "right" }}>{formatNumber(amount)}</td>
+                <td style={{ ...td, textAlign: "right", color: COLORS.muted }}>{ratio.toFixed(1)}%</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+export function IncomeStatementTable({ major, detail, onEditCell, baseYear, lastMonth }: IncomeStatementTableProps) {
+  const visibleMonths = lastMonth && lastMonth > 0 && lastMonth <= 12 ? lastMonth : 12;
+  const title =
+    baseYear && visibleMonths < 12
+      ? `${baseYear}년 1~${visibleMonths}월 누계 손익계산서`
+      : baseYear
+        ? `${baseYear}년 손익계산서`
+        : "손익계산서";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+      <h2 style={{ fontSize: 16, margin: 0 }}>{title}</h2>
       {onEditCell && (
         <p style={{ fontSize: 12, color: COLORS.muted, margin: 0 }}>
           금액 셀을 클릭하면 수정할 수 있습니다. <span style={{ color: "#d97706" }}>●</span> 표시는 관리자가 수정한 값입니다.
         </p>
       )}
+      <SummaryTable major={major} visibleMonths={visibleMonths} />
       <div>
         <p style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 8 }}>손익계산서 (대분류)</p>
-        <Table rows={major} bold onEditCell={onEditCell} />
+        <Table rows={major} bold onEditCell={onEditCell} visibleMonths={visibleMonths} />
       </div>
       {detail.length > 0 && (
         <div>
           <p style={{ fontSize: 13, color: COLORS.textSecondary, marginBottom: 8 }}>세부 계정과목</p>
-          <Table rows={detail} onEditCell={onEditCell} />
+          <Table rows={detail} onEditCell={onEditCell} visibleMonths={visibleMonths} />
         </div>
       )}
     </div>
