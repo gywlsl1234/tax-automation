@@ -14,9 +14,13 @@ import {
   topVendors,
 } from "./aggregate";
 import { estimateComprehensiveIncomeTax } from "@/lib/tax/incomeTax";
-import { estimateVat, type VatPeriodEstimate, type VatPeriodType } from "./vat";
+import { estimateCorporateTax } from "@/lib/tax/corporateTax";
+import { estimateVat, estimateSimplifiedVat, isVatEnabled, type VatPeriodEstimate, type VatPeriodType, type VatTaxpayerType } from "./vat";
 
-export type LoadedReportViewData = Omit<ReportViewData, "onEditIncomeCell" | "onEditNote" | "onEditTaxOverride">;
+export type LoadedReportViewData = Omit<
+  ReportViewData,
+  "onEditIncomeCell" | "onEditNote" | "onEditTaxOverride" | "onEditVatOverride" | "onEditCorpTaxOverride"
+>;
 
 /**
  * 관리자 미리보기(/admin/reports/[id]/preview)와 고객 열람 화면(/r/[token])이
@@ -35,7 +39,7 @@ export const loadReportViewData = cache(async function loadReportViewData(
   const { data: report, error: reportError } = await supabase
     .from("reports")
     .select(
-      "id, base_year, report_month, compare_year, currency_unit, client_id, manual_tax_override, manual_annual_income, manual_income_tax, manual_local_tax, manual_vat_override, manual_vat_periods"
+      "id, base_year, report_month, compare_year, currency_unit, client_id, manual_tax_override, manual_annual_income, manual_income_tax, manual_local_tax, manual_vat_override, manual_vat_periods, manual_corp_tax_override, manual_corp_annual_income, manual_corp_tax, manual_corp_local_tax"
     )
     .eq("id", reportId)
     .single();
@@ -45,7 +49,7 @@ export const loadReportViewData = cache(async function loadReportViewData(
 
   const { data: client, error: clientError } = await supabase
     .from("clients")
-    .select("company_name, ceo_name, biz_reg_no, entity_type, vat_period_type")
+    .select("company_name, ceo_name, biz_reg_no, entity_type, vat_period_type, vat_taxpayer_type, simplified_vat_rate")
     .eq("id", report.client_id)
     .single();
   if (clientError || !client) {
@@ -113,17 +117,51 @@ export const loadReportViewData = cache(async function loadReportViewData(
       }
     : { ...estimateComprehensiveIncomeTax({ cumulativeIncome, monthsElapsed: lastMonth }), isManualOverride: false };
 
+  const corpTaxOverrideInput = {
+    enabled: report.manual_corp_tax_override,
+    annualIncome: report.manual_corp_annual_income,
+    corpTax: report.manual_corp_tax,
+    localTax: report.manual_corp_local_tax,
+  };
+  const corpTaxEstimate = report.manual_corp_tax_override
+    ? {
+        annualizedIncome: report.manual_corp_annual_income ?? 0,
+        corpTax: report.manual_corp_tax ?? 0,
+        localCorpTax: report.manual_corp_local_tax ?? 0,
+        totalTax: (report.manual_corp_tax ?? 0) + (report.manual_corp_local_tax ?? 0),
+        isManualOverride: true,
+      }
+    : { ...estimateCorporateTax({ cumulativeIncome, monthsElapsed: lastMonth }), isManualOverride: false };
+
   const vatPeriodType = (client.vat_period_type as VatPeriodType) ?? "semiannual";
+  const vatTaxpayerType = (client.vat_taxpayer_type as VatTaxpayerType) ?? "general";
+  const vatEnabled = isVatEnabled(vatTaxpayerType);
   const monthlySalesVat = monthlyLedgerTotals(entries, "매출", year, "vat_amount");
   const monthlyPurchaseVat = monthlyLedgerTotals(entries, "매입", year, "vat_amount");
   const vatOverrideInput = {
     enabled: report.manual_vat_override,
     periods: (report.manual_vat_periods as VatPeriodEstimate[] | null) ?? null,
   };
+
+  const simplifiedVatRate = client.simplified_vat_rate;
+  function computeAutoVatEstimate(): VatPeriodEstimate[] {
+    if (!vatEnabled) return [];
+    if (vatTaxpayerType === "simplified_invoice") {
+      return estimateSimplifiedVat({
+        monthlySalesAmount: sales.monthly,
+        monthlyPurchaseAmount: purchase.monthly,
+        lastMonth,
+        periodType: vatPeriodType,
+        vatRatePercent: simplifiedVatRate ?? 0,
+      });
+    }
+    return estimateVat({ monthlySalesVat, monthlyPurchaseVat, lastMonth, periodType: vatPeriodType });
+  }
+
   const vatEstimate: VatPeriodEstimate[] =
-    report.manual_vat_override && vatOverrideInput.periods
+    vatEnabled && report.manual_vat_override && vatOverrideInput.periods
       ? vatOverrideInput.periods.map((p) => ({ ...p, status: "manual" as const }))
-      : estimateVat({ monthlySalesVat, monthlyPurchaseVat, lastMonth, periodType: vatPeriodType });
+      : computeAutoVatEstimate();
 
   return {
     ok: true,
@@ -134,10 +172,15 @@ export const loadReportViewData = cache(async function loadReportViewData(
         bizRegNo: client.biz_reg_no,
         entityType: client.entity_type as "individual" | "corporate",
         vatPeriodType,
+        vatTaxpayerType,
+        simplifiedVatRate,
       },
       cumulativeIncome,
       taxEstimate,
       taxOverrideInput,
+      corpTaxEstimate,
+      corpTaxOverrideInput,
+      vatEnabled,
       vatEstimate,
       vatOverrideInput,
       monthlySalesVat,

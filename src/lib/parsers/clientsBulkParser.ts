@@ -7,6 +7,8 @@ const HEADERS = {
   ceoName: ["대표자명", "대표자"],
   bizRegNo: ["사업자등록번호"],
   entityType: ["사업자구분", "구분"],
+  vatTaxpayerType: ["과세유형"],
+  simplifiedVatRate: ["부가가치율"],
   bizType: ["업태"],
   bizItem: ["종목"],
   contactName: ["담당자명", "담당자"],
@@ -43,6 +45,19 @@ function parseEntityType(raw: string): "individual" | "corporate" {
   const normalized = raw.trim();
   if (normalized.includes("법인")) return "corporate";
   return "individual"; // 미기재/개인 등은 기본값(individual)
+}
+
+function parseVatTaxpayerType(raw: string): "general" | "simplified" | "simplified_invoice" | "exempt" {
+  const normalized = raw.trim();
+  if (normalized.includes("면세")) return "exempt";
+  if (normalized.includes("간이") && normalized.includes("세금계산서")) return "simplified_invoice";
+  if (normalized.includes("간이")) return "simplified";
+  return "general"; // 미기재/일반과세자 등은 기본값
+}
+
+function parsePercent(raw: string): number | null {
+  const match = raw.match(/[\d.]+/);
+  return match ? Number(match[0]) : null;
 }
 
 function parseFiscalMonth(raw: string): number | null {
@@ -100,6 +115,8 @@ export function parseClientsBulkSheet(sheet: ExcelJS.Worksheet): {
       ceoName,
       bizRegNo: bizRegNoRaw,
       entityType: parseEntityType(cellText(row, columns.entityType)),
+      vatTaxpayerType: parseVatTaxpayerType(cellText(row, columns.vatTaxpayerType)),
+      simplifiedVatRate: parsePercent(cellText(row, columns.simplifiedVatRate)),
       bizType: cellText(row, columns.bizType) || null,
       bizItem: cellText(row, columns.bizItem) || null,
       contactName: cellText(row, columns.contactName) || null,

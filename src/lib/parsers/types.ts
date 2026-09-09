@@ -62,6 +62,9 @@ export interface ParsedClientBulkRow {
   ceoName: string;
   bizRegNo: string;
   entityType: "individual" | "corporate";
+  vatTaxpayerType: "general" | "simplified" | "simplified_invoice" | "exempt";
+  /** 간이과세자/간이(세금계산서발급)일 때만 사용하는 업종별 부가가치율(%) */
+  simplifiedVatRate: number | null;
   bizType: string | null;
   bizItem: string | null;
   contactName: string | null;

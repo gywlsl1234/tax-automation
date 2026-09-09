@@ -2,6 +2,7 @@ import "server-only";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type EntityType = "individual" | "corporate";
+export type VatTaxpayerType = "general" | "simplified" | "simplified_invoice" | "exempt";
 
 export interface ClientUpsertInput {
   companyName: string;
@@ -20,6 +21,10 @@ export interface ClientUpsertInput {
   entityType?: EntityType;
   /** 지정하지 않으면 기존 값을 그대로 둔다. */
   contactName?: string | null;
+  /** 지정하지 않으면 기존 값(신규 생성 시 DB 기본값 'general')을 그대로 둔다. */
+  vatTaxpayerType?: VatTaxpayerType;
+  /** 간이과세자/간이(세금계산서발급) 전용 업종별 부가가치율(%). 지정하지 않으면 기존 값을 그대로 둔다. */
+  simplifiedVatRate?: number | null;
 }
 
 /**
@@ -59,6 +64,8 @@ export async function upsertClientByBizRegNo(
   };
   if (input.entityType !== undefined) row.entity_type = input.entityType;
   if (input.contactName !== undefined) row.contact_name = input.contactName;
+  if (input.vatTaxpayerType !== undefined) row.vat_taxpayer_type = input.vatTaxpayerType;
+  if (input.simplifiedVatRate !== undefined) row.simplified_vat_rate = input.simplifiedVatRate;
 
   if (existing) {
     const { error: updateError } = await supabase.from("clients").update(row).eq("id", existing.id);

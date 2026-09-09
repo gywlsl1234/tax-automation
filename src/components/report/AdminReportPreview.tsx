@@ -2,9 +2,11 @@
 
 import { useState } from "react";
 import { estimateComprehensiveIncomeTax } from "@/lib/tax/incomeTax";
-import { estimateVat } from "@/lib/report/vat";
+import { estimateCorporateTax } from "@/lib/tax/corporateTax";
+import { estimateVat, estimateSimplifiedVat } from "@/lib/report/vat";
 import { ReportView, type ReportViewData } from "./ReportView";
 import type { TaxOverrideInput } from "./IncomeTaxSection";
+import type { CorpTaxOverrideInput } from "./CorporateTaxSection";
 import type { VatOverrideInput } from "./VatSection";
 
 /**
@@ -103,6 +105,55 @@ export function AdminReportPreview({
     }));
   }
 
+  async function handleEditCorpTaxOverride(input: CorpTaxOverrideInput) {
+    const res = await fetch(`/api/admin/reports/${reportId}/corp-tax-override`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const json = await res.json();
+    if (!res.ok) {
+      window.alert(json.error ?? "수정에 실패했습니다.");
+      return;
+    }
+
+    setData((prev) => ({
+      ...prev,
+      corpTaxOverrideInput: input,
+      corpTaxEstimate: input.enabled
+        ? {
+            annualizedIncome: input.annualIncome ?? 0,
+            corpTax: input.corpTax ?? 0,
+            localCorpTax: input.localTax ?? 0,
+            totalTax: (input.corpTax ?? 0) + (input.localTax ?? 0),
+            isManualOverride: true,
+          }
+        : {
+            ...estimateCorporateTax({ cumulativeIncome: prev.cumulativeIncome, monthsElapsed: prev.lastMonth }),
+            isManualOverride: false,
+          },
+    }));
+  }
+
+  function recomputeAutoVatEstimate(prev: typeof data) {
+    if (!prev.vatEnabled) return [];
+    if (prev.client.vatTaxpayerType === "simplified_invoice") {
+      return estimateSimplifiedVat({
+        monthlySalesAmount: prev.sales.monthly,
+        monthlyPurchaseAmount: prev.purchase.monthly,
+        lastMonth: prev.lastMonth,
+        periodType: prev.client.vatPeriodType,
+        vatRatePercent: prev.client.simplifiedVatRate ?? 0,
+      });
+    }
+    return estimateVat({
+      monthlySalesVat: prev.monthlySalesVat,
+      monthlyPurchaseVat: prev.monthlyPurchaseVat,
+      lastMonth: prev.lastMonth,
+      periodType: prev.client.vatPeriodType,
+    });
+  }
+
   async function handleEditVatOverride(input: VatOverrideInput) {
     const res = await fetch(`/api/admin/reports/${reportId}/vat-override`, {
       method: "PATCH",
@@ -125,12 +176,7 @@ export function AdminReportPreview({
               months: prev.vatEstimate[idx]?.months ?? [],
               status: "manual" as const,
             }))
-          : estimateVat({
-              monthlySalesVat: prev.monthlySalesVat,
-              monthlyPurchaseVat: prev.monthlyPurchaseVat,
-              lastMonth: prev.lastMonth,
-              periodType: prev.client.vatPeriodType,
-            }),
+          : recomputeAutoVatEstimate(prev),
     }));
   }
 
@@ -140,6 +186,7 @@ export function AdminReportPreview({
       onEditIncomeCell={handleEditIncomeCell}
       onEditNote={handleEditNote}
       onEditTaxOverride={handleEditTaxOverride}
+      onEditCorpTaxOverride={handleEditCorpTaxOverride}
       onEditVatOverride={handleEditVatOverride}
     />
   );

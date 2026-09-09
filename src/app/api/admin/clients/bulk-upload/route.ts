@@ -35,6 +35,8 @@ export async function POST(request: Request) {
           ceoName: row.ceoName,
           bizRegNo: row.bizRegNo,
           entityType: row.entityType,
+          vatTaxpayerType: row.vatTaxpayerType,
+          simplifiedVatRate: row.simplifiedVatRate,
           bizType: row.bizType,
           bizItem: row.bizItem,
           contactName: row.contactName,

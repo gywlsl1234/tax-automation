@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getSupabaseAdminClient } from "@/lib/supabase/admin";
 import { ClientReportsPanel } from "@/components/admin/ClientReportsPanel";
 import { VatPeriodTypeSetting } from "@/components/admin/VatPeriodTypeSetting";
+import { VatTaxpayerTypeSetting, type VatTaxpayerType } from "@/components/admin/VatTaxpayerTypeSetting";
 import { ClientDeleteButton } from "@/components/admin/ClientDeleteButton";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
   const { data: client, error: clientError } = await supabase
     .from("clients")
     .select(
-      "id, company_name, ceo_name, biz_reg_no, entity_type, biz_type, biz_item, contact_name, phone, email, address, vat_period_type"
+      "id, company_name, ceo_name, biz_reg_no, entity_type, biz_type, biz_item, contact_name, phone, email, address, vat_period_type, vat_taxpayer_type, simplified_vat_rate"
     )
     .eq("id", clientId)
     .maybeSingle();
@@ -87,6 +88,16 @@ export default async function ClientDetailPage({ params }: { params: Promise<{ i
               <VatPeriodTypeSetting
                 clientId={client.id}
                 initialValue={(client.vat_period_type as "semiannual" | "quarterly") ?? "semiannual"}
+              />
+            </td>
+          </tr>
+          <tr>
+            <td style={tdLabel}>과세유형(부가세)</td>
+            <td style={td}>
+              <VatTaxpayerTypeSetting
+                clientId={client.id}
+                initialType={(client.vat_taxpayer_type as VatTaxpayerType) ?? "general"}
+                initialRate={client.simplified_vat_rate}
               />
             </td>
           </tr>

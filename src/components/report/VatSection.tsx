@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { formatWon } from "@/lib/report/money";
-import type { VatPeriodEstimate } from "@/lib/report/vat";
+import type { VatPeriodEstimate, VatTaxpayerType } from "@/lib/report/vat";
 import { COLORS } from "./colors";
 
 export interface VatOverridePeriodInput {
@@ -21,6 +21,16 @@ export type OnEditVatOverride = (input: VatOverrideInput) => Promise<void>;
 
 const DISCLAIMER =
   "현재 등록된 매출장·매입장 데이터를 기준으로 환산한 예상 금액이며, 의제매입세액공제·신용카드매출전표발행세액공제 등은 반영되지 않아 실제 신고세액과 차이가 발생할 수 있습니다.";
+
+const SIMPLIFIED_DISCLAIMER =
+  "간이과세자 계산구조(매출액 × 업종별 부가가치율 × 10% − 매입액 × 0.5%)로 환산한 예상 금액이며, 실제 신고세액과 차이가 발생할 수 있습니다.";
+
+const DISABLED_REASON: Record<VatTaxpayerType, string> = {
+  general: "",
+  simplified: "간이과세자는 예상 부가세 계산이 비활성화되어 있습니다.",
+  simplified_invoice: "",
+  exempt: "면세사업자는 예상 부가세 계산이 비활성화되어 있습니다.",
+};
 
 const STATUS_LABEL: Record<VatPeriodEstimate["status"], string> = {
   actual: "실적",
@@ -49,10 +59,14 @@ export function VatSection({
   vatEstimate,
   vatOverrideInput,
   onEditVatOverride,
+  vatEnabled,
+  vatTaxpayerType,
 }: {
   vatEstimate: VatPeriodEstimate[];
   vatOverrideInput: VatOverrideInput;
   onEditVatOverride?: OnEditVatOverride;
+  vatEnabled: boolean;
+  vatTaxpayerType: VatTaxpayerType;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [enabled, setEnabled] = useState(vatOverrideInput.enabled);
@@ -60,6 +74,17 @@ export function VatSection({
     vatEstimate.map((p) => ({ label: p.label, salesVat: String(p.salesVat), purchaseVat: String(p.purchaseVat) }))
   );
   const [isSaving, setIsSaving] = useState(false);
+
+  if (!vatEnabled) {
+    return (
+      <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+        <h2 style={{ fontSize: 17, margin: 0 }}>예상 부가세</h2>
+        <p style={{ fontSize: 13, color: COLORS.muted, border: `1px solid ${COLORS.gridline}`, borderRadius: 8, padding: 16, margin: 0 }}>
+          {DISABLED_REASON[vatTaxpayerType] || "이 거래처는 예상 부가세 계산이 비활성화되어 있습니다."}
+        </p>
+      </section>
+    );
+  }
 
   function updateDraft(idx: number, field: "salesVat" | "purchaseVat", value: string) {
     setDrafts((prev) => prev.map((d, i) => (i === idx ? { ...d, [field]: value } : d)));
@@ -86,7 +111,12 @@ export function VatSection({
   return (
     <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 style={{ fontSize: 17, margin: 0 }}>예상 부가세</h2>
+        <h2 style={{ fontSize: 17, margin: 0 }}>
+          예상 부가세{" "}
+          {vatTaxpayerType === "simplified_invoice" && (
+            <span style={{ fontSize: 12, fontWeight: 400, color: COLORS.muted }}>(간이과세 계산방식 적용)</span>
+          )}
+        </h2>
         {onEditVatOverride && !isEditing && (
           <button
             onClick={() => setIsEditing(true)}
@@ -155,7 +185,9 @@ export function VatSection({
         </div>
       )}
 
-      <p style={{ fontSize: 11, color: COLORS.muted, margin: 0 }}>{DISCLAIMER}</p>
+      <p style={{ fontSize: 11, color: COLORS.muted, margin: 0 }}>
+        {vatTaxpayerType === "simplified_invoice" ? SIMPLIFIED_DISCLAIMER : DISCLAIMER}
+      </p>
     </section>
   );
 }

@@ -23,6 +23,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "사업자등록번호 형식이 올바르지 않습니다." }, { status: 400 });
   }
   const entityType = body.entityType === "corporate" ? "corporate" : "individual";
+  const VALID_VAT_TYPES = ["general", "simplified", "simplified_invoice", "exempt"];
+  const vatTaxpayerType = VALID_VAT_TYPES.includes(body.vatTaxpayerType) ? body.vatTaxpayerType : "general";
+  const simplifiedVatRate =
+    body.simplifiedVatRate !== undefined && body.simplifiedVatRate !== "" ? Number(body.simplifiedVatRate) : null;
 
   try {
     const result = await upsertClientByBizRegNo({
@@ -30,6 +34,8 @@ export async function POST(request: Request) {
       ceoName,
       bizRegNo: bizRegNoRaw,
       entityType,
+      vatTaxpayerType,
+      simplifiedVatRate,
       bizType: body.bizType || null,
       bizItem: body.bizItem || null,
       contactName: body.contactName || null,

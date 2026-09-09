@@ -13,8 +13,14 @@ import { CompositionDonut } from "./CompositionDonut";
 import { VendorTable } from "./VendorTable";
 import { IncomeStatementTable, type OnEditIncomeCell } from "./IncomeStatementTable";
 import { IncomeTaxSection, type OnEditTaxOverride, type TaxEstimate, type TaxOverrideInput } from "./IncomeTaxSection";
+import {
+  CorporateTaxSection,
+  type OnEditCorpTaxOverride,
+  type CorpTaxEstimate,
+  type CorpTaxOverrideInput,
+} from "./CorporateTaxSection";
 import { VatSection, type OnEditVatOverride, type VatOverrideInput } from "./VatSection";
-import type { VatPeriodEstimate } from "@/lib/report/vat";
+import type { VatPeriodEstimate, VatTaxpayerType } from "@/lib/report/vat";
 import { generateInsights } from "@/lib/report/insights";
 import { projectRemainingMonths } from "@/lib/report/projection";
 import { InsightList } from "./InsightList";
@@ -44,6 +50,10 @@ export interface ReportViewData {
     entityType: "individual" | "corporate";
     /** 예상 부가세를 반기(2개 기간) 또는 분기(4개 기간) 기준으로 보여줄지. */
     vatPeriodType: "semiannual" | "quarterly";
+    /** 일반과세자/간이과세자/간이과세자(세금계산서발급)/면세사업자. */
+    vatTaxpayerType: VatTaxpayerType;
+    /** 간이과세자(세금계산서발급) 계산에 쓰이는 업종별 부가가치율(%). 그 외 유형은 null. */
+    simplifiedVatRate: number | null;
   };
   report: { baseYear: number; reportMonth: number | null; compareYear: number | null; currencyUnit: string };
   incomeGrid: { major: IncomeStatementAccountRow[]; detail: IncomeStatementAccountRow[] };
@@ -62,15 +72,20 @@ export interface ReportViewData {
   cumulativeIncome: number;
   taxEstimate: TaxEstimate;
   taxOverrideInput: TaxOverrideInput;
+  corpTaxEstimate: CorpTaxEstimate;
+  corpTaxOverrideInput: CorpTaxOverrideInput;
+  /** vatTaxpayerType에 따라 예상 부가세 계산을 노출할지(일반과세자/간이과세자(세금계산서발급)만 true). */
+  vatEnabled: boolean;
   vatEstimate: VatPeriodEstimate[];
   vatOverrideInput: VatOverrideInput;
   /** 부가세 수동입력을 끌 때 자동계산으로 되돌리기 위해 관리자 화면(AdminReportPreview)에서만 사용한다. */
   monthlySalesVat: number[];
   monthlyPurchaseVat: number[];
-  /** 제공되면 손익계산서 셀/메모/종합소득세·부가세 수동입력이 편집 가능해진다 (관리자 화면 전용, 고객 화면에는 넘기지 않는다). */
+  /** 제공되면 손익계산서 셀/메모/종합소득세·법인세·부가세 수동입력이 편집 가능해진다 (관리자 화면 전용, 고객 화면에는 넘기지 않는다). */
   onEditIncomeCell?: OnEditIncomeCell;
   onEditNote?: (noteId: string, newContent: string) => Promise<void>;
   onEditTaxOverride?: OnEditTaxOverride;
+  onEditCorpTaxOverride?: OnEditCorpTaxOverride;
   onEditVatOverride?: OnEditVatOverride;
 }
 
@@ -93,11 +108,15 @@ export function ReportView({
   cumulativeIncome,
   taxEstimate,
   taxOverrideInput,
+  corpTaxEstimate,
+  corpTaxOverrideInput,
+  vatEnabled,
   vatEstimate,
   vatOverrideInput,
   onEditIncomeCell,
   onEditNote,
   onEditTaxOverride,
+  onEditCorpTaxOverride,
   onEditVatOverride,
 }: ReportViewData) {
   const [tab, setTab] = useState<Tab>("요약");
@@ -230,12 +249,19 @@ export function ReportView({
             />
           </div>
           <InsightList insights={insights} />
-          {client.entityType === "individual" && (
+          {client.entityType === "individual" ? (
             <IncomeTaxSection
               cumulativeIncome={cumulativeIncome}
               taxEstimate={taxEstimate}
               taxOverrideInput={taxOverrideInput}
               onEditTaxOverride={onEditTaxOverride}
+            />
+          ) : (
+            <CorporateTaxSection
+              cumulativeIncome={cumulativeIncome}
+              taxEstimate={corpTaxEstimate}
+              taxOverrideInput={corpTaxOverrideInput}
+              onEditCorpTaxOverride={onEditCorpTaxOverride}
             />
           )}
           <div>
@@ -271,7 +297,13 @@ export function ReportView({
       {tab === "매입분석" && <LedgerAnalysisSection title="매입" color={COLORS.purchase} data={purchase} />}
 
       {tab === "예상 부가세" && (
-        <VatSection vatEstimate={vatEstimate} vatOverrideInput={vatOverrideInput} onEditVatOverride={onEditVatOverride} />
+        <VatSection
+          vatEstimate={vatEstimate}
+          vatOverrideInput={vatOverrideInput}
+          onEditVatOverride={onEditVatOverride}
+          vatEnabled={vatEnabled}
+          vatTaxpayerType={client.vatTaxpayerType}
+        />
       )}
 
       {tab === "담당자 메모" && (

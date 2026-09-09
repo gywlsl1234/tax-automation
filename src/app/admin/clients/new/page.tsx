@@ -11,6 +11,8 @@ export default function NewClientPage() {
     ceoName: "",
     bizRegNo: "",
     entityType: "individual",
+    vatTaxpayerType: "general",
+    simplifiedVatRate: "",
     bizType: "",
     bizItem: "",
     contactName: "",
@@ -80,6 +82,28 @@ export default function NewClientPage() {
             <option value="corporate">법인사업자</option>
           </select>
         </div>
+        <div>
+          <label style={labelStyle}>과세유형 (부가세)</label>
+          <select
+            value={form.vatTaxpayerType}
+            onChange={(e) => update("vatTaxpayerType", e.target.value)}
+            style={{ padding: "6px 8px", fontSize: 14, width: "100%" }}
+          >
+            <option value="general">일반과세자</option>
+            <option value="simplified">간이과세자</option>
+            <option value="simplified_invoice">간이과세자(세금계산서발급)</option>
+            <option value="exempt">면세사업자</option>
+          </select>
+        </div>
+        {(form.vatTaxpayerType === "simplified" || form.vatTaxpayerType === "simplified_invoice") && (
+          <Field
+            label="업종별 부가가치율 (%)"
+            value={form.simplifiedVatRate}
+            onChange={(v) => update("simplifiedVatRate", v)}
+            type="number"
+            placeholder="예: 15"
+          />
+        )}
         <Field label="업태" value={form.bizType} onChange={(v) => update("bizType", v)} />
         <Field label="종목" value={form.bizItem} onChange={(v) => update("bizItem", v)} />
         <Field label="담당자명" value={form.contactName} onChange={(v) => update("contactName", v)} />
